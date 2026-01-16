@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { GoogleAnalytics } from "@/components/google-analytics";
 import "./globals.css";
 
 /**
@@ -58,6 +59,7 @@ export default function RootLayout({
             <body
                 className={`${fontSans.variable} ${fontMono.variable} font-sans antialiased min-h-screen flex flex-col`}
             >
+                <GoogleAnalytics />
                 <ThemeProvider
                     attribute="class"
                     defaultTheme="dark"

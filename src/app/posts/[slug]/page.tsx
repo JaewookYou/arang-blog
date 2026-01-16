@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import { posts } from "@/.velite";
 import { MDXContent } from "@/components/mdx-content";
 import { formatDate } from "@/lib/utils";
+import { ReadingProgress } from "@/components/reading-progress";
+import { TableOfContents } from "@/components/table-of-contents";
+import { PostNavigation } from "@/components/post-navigation";
 
 /**
  * Post Detail Page
@@ -57,48 +60,71 @@ export async function generateMetadata({ params }: PostPageProps) {
 
 export default async function PostPage({ params }: PostPageProps) {
     const { slug } = await params;
-    const post = posts.find((p) => p.slug === slug);
 
-    if (!post || !post.published) {
+    // 날짜순 정렬된 포스트 목록
+    const sortedPosts = posts
+        .filter((p) => p.published)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const currentIndex = sortedPosts.findIndex((p) => p.slug === slug);
+    const post = sortedPosts[currentIndex];
+
+    if (!post) {
         notFound();
     }
 
+    // 이전/다음 포스트 (날짜순)
+    const prevPost = sortedPosts[currentIndex + 1];
+    const nextPost = sortedPosts[currentIndex - 1];
+
     return (
-        <article className="max-w-3xl mx-auto">
-            {/* Header */}
-            <header className="mb-8 space-y-4">
-                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                    {post.title}
-                </h1>
+        <>
+            <ReadingProgress />
+            <TableOfContents />
 
-                {post.description && (
-                    <p className="text-lg text-muted-foreground">
-                        {post.description}
-                    </p>
-                )}
+            <article className="max-w-3xl mx-auto">
+                {/* Header */}
+                <header className="mb-8 space-y-4">
+                    <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                        {post.title}
+                    </h1>
 
-                <div className="flex items-center gap-4 text-sm text-muted-foreground border-b border-border pb-4">
-                    <time dateTime={post.date}>{formatDate(post.date)}</time>
-
-                    {post.tags.length > 0 && (
-                        <div className="flex gap-2">
-                            {post.tags.map((tag) => (
-                                <span
-                                    key={tag}
-                                    className="px-2 py-0.5 bg-muted rounded-full text-xs"
-                                >
-                                    #{tag}
-                                </span>
-                            ))}
-                        </div>
+                    {post.description && (
+                        <p className="text-lg text-muted-foreground">
+                            {post.description}
+                        </p>
                     )}
-                </div>
-            </header>
 
-            {/* Content */}
-            <div className="prose prose-zinc dark:prose-invert max-w-none">
-                <MDXContent code={post.body} />
-            </div>
-        </article>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground border-b border-border pb-4">
+                        <time dateTime={post.date}>{formatDate(post.date)}</time>
+
+                        {post.tags.length > 0 && (
+                            <div className="flex gap-2">
+                                {post.tags.map((tag) => (
+                                    <span
+                                        key={tag}
+                                        className="px-2 py-0.5 bg-muted rounded-full text-xs"
+                                    >
+                                        #{tag}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </header>
+
+                {/* Content */}
+                <div className="prose prose-zinc dark:prose-invert max-w-none">
+                    <MDXContent code={post.body} />
+                </div>
+
+                {/* Navigation */}
+                <PostNavigation
+                    basePath="/posts"
+                    prevPost={prevPost ? { slug: prevPost.slug, title: prevPost.title } : undefined}
+                    nextPost={nextPost ? { slug: nextPost.slug, title: nextPost.title } : undefined}
+                />
+            </article>
+        </>
     );
 }
