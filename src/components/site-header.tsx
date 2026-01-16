@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Menu, X, Search } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 
@@ -75,6 +76,9 @@ export function SiteHeader() {
                     </Link>
 
                     <Separator orientation="vertical" className="h-6" />
+
+                    {/* Language Switcher */}
+                    <LanguageSwitcher />
 
                     {/* Theme Toggle */}
                     <ThemeToggle />

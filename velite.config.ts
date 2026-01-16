@@ -15,6 +15,12 @@ const baseFields = {
     date: s.isodate(),
     published: s.boolean().default(true),
     tags: s.array(s.string()).default([]),
+    // 예약 발행 - 지정된 날짜 이후에만 공개
+    scheduledAt: s.isodate().optional(),
+    // 다국어 지원 - 원본 언어 표시
+    locale: s.enum(["ko", "en", "ja", "zh"]).default("ko"),
+    // 원본 슬러그 참조 (번역본인 경우)
+    originalSlug: s.string().optional(),
 };
 
 // 블로그 포스트 컬렉션

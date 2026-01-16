@@ -11,6 +11,7 @@
         "velite": "velite --watch"
     },
     "dependencies": {
+        "@google/genai": "^1.37.0",
         "@radix-ui/react-dropdown-menu": "^2.1.16",
         "@radix-ui/react-separator": "^1.1.8",
         "@radix-ui/react-slot": "^1.2.4",

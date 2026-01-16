@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { posts } from "@/.velite";
 import { formatDate } from "@/lib/utils";
 import { TagFilter } from "@/components/tag-filter";
+import { isPostVisible } from "@/lib/i18n";
 
 /**
  * Posts List Page
@@ -21,9 +22,9 @@ interface PostsPageProps {
 export default async function PostsPage({ searchParams }: PostsPageProps) {
     const { tag } = await searchParams;
 
-    // 발행된 포스트만 필터링하고 날짜순 정렬
+    // 발행된 포스트만 필터링하고 날짜순 정렬 (예약 발행 체크 포함)
     const publishedPosts = posts
-        .filter((post) => post.published)
+        .filter((post) => isPostVisible(post))
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     // 태그 필터링
@@ -92,8 +93,8 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
                                                 <span
                                                     key={t}
                                                     className={`px-2 py-0.5 rounded-full text-xs ${t === tag
-                                                            ? "bg-primary text-primary-foreground"
-                                                            : "bg-muted"
+                                                        ? "bg-primary text-primary-foreground"
+                                                        : "bg-muted"
                                                         }`}
                                                 >
                                                     #{t}
