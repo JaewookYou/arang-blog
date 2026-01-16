@@ -1,9 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-    // Standalone 빌드 - 배포 효율성 향상
-    output: "standalone",
-
     // Velite 빌드 출력과 통합
     // Velite는 .velite/ 디렉토리에 타입-안전 콘텐츠를 생성함
     webpack: (config) => {
