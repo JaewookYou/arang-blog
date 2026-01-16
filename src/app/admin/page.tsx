@@ -110,6 +110,30 @@ export default async function AdminPage() {
                         </div>
                     </Link>
                     <Link
+                        href="/admin/manage"
+                        className="flex items-center gap-3 p-4 rounded-lg border border-border hover:border-primary transition-colors"
+                    >
+                        <FileText className="h-6 w-6 text-blue-500" />
+                        <div>
+                            <div className="font-medium">글 관리</div>
+                            <div className="text-sm text-muted-foreground">
+                                기존 글 수정
+                            </div>
+                        </div>
+                    </Link>
+                    <Link
+                        href="/admin/comments"
+                        className="flex items-center gap-3 p-4 rounded-lg border border-border hover:border-primary transition-colors"
+                    >
+                        <MessageSquare className="h-6 w-6 text-green-500" />
+                        <div>
+                            <div className="font-medium">댓글 관리</div>
+                            <div className="text-sm text-muted-foreground">
+                                댓글 조회 및 삭제
+                            </div>
+                        </div>
+                    </Link>
+                    <Link
                         href="/admin/honeypot"
                         className="flex items-center gap-3 p-4 rounded-lg border border-border hover:border-primary transition-colors"
                     >
