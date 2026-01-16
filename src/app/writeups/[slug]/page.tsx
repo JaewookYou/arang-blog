@@ -86,72 +86,77 @@ export default async function WriteupPage({ params }: WriteupPageProps) {
     }
 
     return (
-        <article className="max-w-3xl mx-auto">
-            {/* Header */}
-            <header className="mb-8 space-y-4">
-                {/* CTF Info Bar */}
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="px-3 py-1 bg-primary/10 text-primary rounded-full font-medium">
-                        {writeup.ctf}
-                    </span>
-                    <span className="px-3 py-1 bg-muted rounded-full">
-                        {categoryIcons[writeup.category]} {writeup.category.toUpperCase()}
-                    </span>
-                    {writeup.difficulty && (
-                        <span className={`px-3 py-1 bg-muted rounded-full font-medium ${difficultyColors[writeup.difficulty]}`}>
-                            {writeup.difficulty}
+        <>
+            <ReadingProgress />
+            <TableOfContents />
+
+            <article className="max-w-3xl mx-auto">
+                {/* Header */}
+                <header className="mb-8 space-y-4">
+                    {/* CTF Info Bar */}
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="px-3 py-1 bg-primary/10 text-primary rounded-full font-medium">
+                            {writeup.ctf}
                         </span>
+                        <span className="px-3 py-1 bg-muted rounded-full">
+                            {categoryIcons[writeup.category]} {writeup.category.toUpperCase()}
+                        </span>
+                        {writeup.difficulty && (
+                            <span className={`px-3 py-1 bg-muted rounded-full font-medium ${difficultyColors[writeup.difficulty]}`}>
+                                {writeup.difficulty}
+                            </span>
+                        )}
+                    </div>
+
+                    <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                        {writeup.title}
+                    </h1>
+
+                    {writeup.description && (
+                        <p className="text-lg text-muted-foreground">
+                            {writeup.description}
+                        </p>
                     )}
+
+                    {/* Stats Bar */}
+                    <div className="flex items-center gap-6 text-sm text-muted-foreground border-y border-border py-4">
+                        <time dateTime={writeup.date}>{formatDate(writeup.date)}</time>
+
+                        {writeup.points && (
+                            <span className="font-mono">
+                                <span className="text-primary">{writeup.points}</span> points
+                            </span>
+                        )}
+
+                        {writeup.solves && (
+                            <span>
+                                <span className="text-primary">{writeup.solves}</span> solves
+                            </span>
+                        )}
+
+                        {writeup.tags.length > 0 && (
+                            <div className="flex gap-2">
+                                {writeup.tags.map((tag) => (
+                                    <span
+                                        key={tag}
+                                        className="px-2 py-0.5 bg-muted rounded-full text-xs"
+                                    >
+                                        #{tag}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </header>
+
+                {/* Content */}
+                <div className="prose prose-zinc dark:prose-invert max-w-none">
+                    <MDXContent code={writeup.body} />
                 </div>
 
-                <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                    {writeup.title}
-                </h1>
-
-                {writeup.description && (
-                    <p className="text-lg text-muted-foreground">
-                        {writeup.description}
-                    </p>
-                )}
-
-                {/* Stats Bar */}
-                <div className="flex items-center gap-6 text-sm text-muted-foreground border-y border-border py-4">
-                    <time dateTime={writeup.date}>{formatDate(writeup.date)}</time>
-
-                    {writeup.points && (
-                        <span className="font-mono">
-                            <span className="text-primary">{writeup.points}</span> points
-                        </span>
-                    )}
-
-                    {writeup.solves && (
-                        <span>
-                            <span className="text-primary">{writeup.solves}</span> solves
-                        </span>
-                    )}
-
-                    {writeup.tags.length > 0 && (
-                        <div className="flex gap-2">
-                            {writeup.tags.map((tag) => (
-                                <span
-                                    key={tag}
-                                    className="px-2 py-0.5 bg-muted rounded-full text-xs"
-                                >
-                                    #{tag}
-                                </span>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </header>
-
-            {/* Content */}
-            <div className="prose prose-zinc dark:prose-invert max-w-none">
-                <MDXContent code={writeup.body} />
-            </div>
-
-            {/* Comments */}
-            <Comments postSlug={slug} postType="writeup" />
-        </article>
+                {/* Comments */}
+                <Comments postSlug={slug} postType="writeup" />
+            </article>
+        </>
     );
 }
