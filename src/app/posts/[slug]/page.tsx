@@ -5,6 +5,7 @@ import { formatDate } from "@/lib/utils";
 import { ReadingProgress } from "@/components/reading-progress";
 import { TableOfContents } from "@/components/table-of-contents";
 import { PostNavigation } from "@/components/post-navigation";
+import { Comments } from "@/components/comments";
 
 /**
  * Post Detail Page
@@ -124,6 +125,9 @@ export default async function PostPage({ params }: PostPageProps) {
                     prevPost={prevPost ? { slug: prevPost.slug, title: prevPost.title } : undefined}
                     nextPost={nextPost ? { slug: nextPost.slug, title: nextPost.title } : undefined}
                 />
+
+                {/* Comments */}
+                <Comments postSlug={slug} postType="post" />
             </article>
         </>
     );

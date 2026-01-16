@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import { writeups } from "@/.velite";
 import { MDXContent } from "@/components/mdx-content";
 import { formatDate } from "@/lib/utils";
+import { Comments } from "@/components/comments";
+import { ReadingProgress } from "@/components/reading-progress";
+import { TableOfContents } from "@/components/table-of-contents";
 
 /**
  * Writeup Detail Page
@@ -146,6 +149,9 @@ export default async function WriteupPage({ params }: WriteupPageProps) {
             <div className="prose prose-zinc dark:prose-invert max-w-none">
                 <MDXContent code={writeup.body} />
             </div>
+
+            {/* Comments */}
+            <Comments postSlug={slug} postType="writeup" />
         </article>
     );
 }
