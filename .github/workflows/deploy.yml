@@ -17,13 +17,16 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
+          port: ${{ secrets.SSH_PORT }}
           script: |
+            # fnm 환경 로드
+            export PATH="$HOME/.local/share/fnm:$PATH"
+            eval "$(fnm env)"
+            
             cd /home/arang/web/blog
             
-            # Git pull
-            git fetch origin main
-            git reset --hard origin/main
+            # Git pull (SSH 사용)
+            git pull origin main
             
             # Install dependencies
             npm ci --legacy-peer-deps
