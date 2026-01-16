@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { posts } from "@/.velite";
 import { formatDate } from "@/lib/utils";
+import { TagFilter } from "@/components/tag-filter";
 
 /**
  * Posts List Page
- * 블로그 포스트 목록 페이지
+ * 블로그 포스트 목록 페이지 (태그 필터링 지원)
  */
 
 export const metadata = {
@@ -12,11 +14,25 @@ export const metadata = {
     description: "기술 블로그 포스트 목록",
 };
 
-export default function PostsPage() {
+interface PostsPageProps {
+    searchParams: Promise<{ tag?: string }>;
+}
+
+export default async function PostsPage({ searchParams }: PostsPageProps) {
+    const { tag } = await searchParams;
+
     // 발행된 포스트만 필터링하고 날짜순 정렬
     const publishedPosts = posts
         .filter((post) => post.published)
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // 태그 필터링
+    const filteredPosts = tag
+        ? publishedPosts.filter((post) => post.tags.includes(tag))
+        : publishedPosts;
+
+    // 모든 태그 수집
+    const allTags = publishedPosts.flatMap((post) => post.tags);
 
     return (
         <div className="max-w-3xl mx-auto">
@@ -24,16 +40,30 @@ export default function PostsPage() {
                 <h1 className="text-3xl font-bold tracking-tight">📝 Posts</h1>
                 <p className="text-muted-foreground">
                     기술 블로그 포스트 모음
+                    {tag && (
+                        <span className="ml-2 text-primary">
+                            #{tag} 태그 필터링 중
+                        </span>
+                    )}
                 </p>
             </div>
 
-            {publishedPosts.length === 0 ? (
+            {/* Tag Filter */}
+            <Suspense fallback={null}>
+                <TagFilter tags={allTags} basePath="/posts" />
+            </Suspense>
+
+            {filteredPosts.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
-                    <p>아직 작성된 포스트가 없습니다.</p>
+                    <p>
+                        {tag
+                            ? `"${tag}" 태그를 가진 포스트가 없습니다.`
+                            : "아직 작성된 포스트가 없습니다."}
+                    </p>
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {publishedPosts.map((post) => (
+                    {filteredPosts.map((post) => (
                         <article
                             key={post.slug}
                             className="group relative rounded-lg border border-border bg-card p-6 hover:border-primary/50 transition-colors"
@@ -58,12 +88,15 @@ export default function PostsPage() {
 
                                     {post.tags.length > 0 && (
                                         <div className="flex gap-2">
-                                            {post.tags.slice(0, 3).map((tag) => (
+                                            {post.tags.slice(0, 3).map((t) => (
                                                 <span
-                                                    key={tag}
-                                                    className="px-2 py-0.5 bg-muted rounded-full text-xs"
+                                                    key={t}
+                                                    className={`px-2 py-0.5 rounded-full text-xs ${t === tag
+                                                            ? "bg-primary text-primary-foreground"
+                                                            : "bg-muted"
+                                                        }`}
                                                 >
-                                                    #{tag}
+                                                    #{t}
                                                 </span>
                                             ))}
                                         </div>
