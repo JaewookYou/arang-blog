@@ -77,7 +77,10 @@ points: ${points}`;
 
 `;
 
-        const fileContent = frontmatter + content;
+        // HTML 주석을 MDX 주석으로 변환 (<!-- --> → {/* */})
+        const sanitizedContent = content.replace(/<!--\s*([\s\S]*?)\s*-->/g, '{/* $1 */}');
+
+        const fileContent = frontmatter + sanitizedContent;
 
         // Octokit 초기화
         const octokit = new Octokit({ auth: GITHUB_TOKEN });
