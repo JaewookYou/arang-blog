@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Save, FileText, Flag, ArrowLeft } from "lucide-react";
+import { Save, FileText, Flag, ArrowLeft, Upload, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 // MDX 에디터는 클라이언트 사이드에서만 로드
@@ -13,7 +13,7 @@ const MDEditor = dynamic(() => import("@uiw/react-md-editor"), { ssr: false });
 
 /**
  * Admin Write Page
- * 새 글 작성 (Git-CMS)
+ * 새 글 작성 (Git-CMS) + 이미지 업로드 지원
  */
 
 interface FormData {
@@ -33,6 +33,9 @@ interface FormData {
 export default function WritePage() {
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const editorRef = useRef<HTMLDivElement>(null);
+
     const [formData, setFormData] = useState<FormData>({
         type: "post",
         title: "",
@@ -48,6 +51,68 @@ export default function WritePage() {
         difficulty: "medium",
         points: "",
     });
+
+    // 이미지 업로드 함수
+    const uploadImage = useCallback(async (file: File): Promise<string | null> => {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        try {
+            const res = await fetch("/api/admin/upload", {
+                method: "POST",
+                body: formData,
+            });
+
+            if (!res.ok) {
+                const error = await res.json();
+                alert(`업로드 실패: ${error.error}`);
+                return null;
+            }
+
+            const data = await res.json();
+            return data.url;
+        } catch {
+            alert("업로드 중 오류가 발생했습니다.");
+            return null;
+        }
+    }, []);
+
+    // 클립보드 이미지 붙여넣기 핸들러
+    useEffect(() => {
+        const handlePaste = async (e: ClipboardEvent) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+
+            for (const item of items) {
+                if (item.type.startsWith("image/")) {
+                    e.preventDefault();
+                    setIsUploading(true);
+
+                    const file = item.getAsFile();
+                    if (!file) continue;
+
+                    const url = await uploadImage(file);
+                    if (url) {
+                        // 마크다운 이미지 문법 삽입
+                        const imageMarkdown = `![image](${url})`;
+                        setFormData(prev => ({
+                            ...prev,
+                            content: prev.content + "\n" + imageMarkdown + "\n",
+                        }));
+                    }
+
+                    setIsUploading(false);
+                    return;
+                }
+            }
+        };
+
+        const editor = editorRef.current;
+        if (editor) {
+            editor.addEventListener("paste", handlePaste);
+            return () => editor.removeEventListener("paste", handlePaste);
+        }
+    }, [uploadImage]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -74,7 +139,7 @@ export default function WritePage() {
             } else {
                 alert(`❌ 오류: ${result.error}`);
             }
-        } catch (error) {
+        } catch {
             alert("❌ 네트워크 오류가 발생했습니다.");
         } finally {
             setIsSubmitting(false);
@@ -87,6 +152,24 @@ export default function WritePage() {
             .replace(/[^a-z0-9가-힣]+/g, "-")
             .replace(/^-+|-+$/g, "");
         setFormData({ ...formData, slug });
+    };
+
+    // 파일 선택 업로드
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        const url = await uploadImage(file);
+        if (url) {
+            const imageMarkdown = `![${file.name}](${url})`;
+            setFormData(prev => ({
+                ...prev,
+                content: prev.content + "\n" + imageMarkdown + "\n",
+            }));
+        }
+        setIsUploading(false);
+        e.target.value = "";
     };
 
     return (
@@ -217,8 +300,33 @@ export default function WritePage() {
                     </div>
                 )}
 
+                {/* Image Upload Button */}
+                <div className="flex items-center gap-4">
+                    <label className="cursor-pointer">
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileUpload}
+                            className="hidden"
+                        />
+                        <Button type="button" variant="outline" asChild disabled={isUploading}>
+                            <span>
+                                {isUploading ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Upload className="mr-2 h-4 w-4" />
+                                )}
+                                이미지 업로드
+                            </span>
+                        </Button>
+                    </label>
+                    <span className="text-sm text-muted-foreground">
+                        또는 에디터에서 Ctrl+V로 이미지 붙여넣기
+                    </span>
+                </div>
+
                 {/* MDX Editor */}
-                <div data-color-mode="dark">
+                <div data-color-mode="dark" ref={editorRef}>
                     <label className="text-sm font-medium mb-2 block">내용 (MDX)</label>
                     <MDEditor
                         value={formData.content}
@@ -229,7 +337,7 @@ export default function WritePage() {
                 </div>
 
                 {/* Submit */}
-                <Button type="submit" size="lg" disabled={isSubmitting} className="w-full">
+                <Button type="submit" size="lg" disabled={isSubmitting || isUploading} className="w-full">
                     <Save className="mr-2 h-5 w-5" />
                     {isSubmitting ? "커밋 중..." : "GitHub에 커밋"}
                 </Button>
