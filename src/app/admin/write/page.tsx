@@ -154,6 +154,8 @@ export default function WritePage() {
                     content: formData.content,
                     title: formData.title,
                     description: formData.description,
+                    slug: formData.slug,
+                    type: formData.type,
                     targetLocales: ["en", "ja", "zh"],
                 }),
             });
@@ -162,17 +164,12 @@ export default function WritePage() {
 
             if (res.ok) {
                 alert(
-                    `✅ 번역 완료!
+                    `✅ 번역 완료! (DB에 저장됨)
 • 영어: ${data.translations.en?.title || "실패"}
 • 일본어: ${data.translations.ja?.title || "실패"}
 • 중국어: ${data.translations.zh?.title || "실패"}
 
-번역된 내용은 글 저장 시 함께 커밋됩니다.`
-                );
-                // 번역 결과를 localStorage에 임시 저장
-                localStorage.setItem(
-                    `translations_${formData.slug}`,
-                    JSON.stringify(data.translations)
+방문자의 언어 설정에 따라 자동으로 표시됩니다.`
                 );
             } else {
                 alert(`❌ 번역 실패: ${data.error}`);
