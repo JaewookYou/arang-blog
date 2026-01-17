@@ -1,12 +1,7 @@
 #!/usr/bin/env node
 /**
- * 블로그 글 다국어 번역 스크립트
- * 모든 posts와 writeups를 en, ja, zh로 번역하여 DB에 저장
- * 
- * 개선사항:
- * - 이미지 경로 완벽 보존
- * - 개행/마크다운 구조 유지
- * - 코드블럭 원본 유지
+ * 블로그 글 다국어 번역 스크립트 (개선버전)
+ * 코드블럭을 사전 추출하여 번역에서 제외하고 나중에 복원
  */
 
 import { GoogleGenAI } from "@google/genai";
@@ -88,51 +83,97 @@ const WRITEUPS = [
 const LOCALES = ["en", "ja", "zh"];
 const LANG_NAMES = { en: "English", ja: "Japanese", zh: "Simplified Chinese" };
 
+/**
+ * 코드블럭 추출 및 플레이스홀더로 대체
+ * 번역 후 복원
+ */
+function extractCodeBlocks(content) {
+    const codeBlocks = [];
+    // 3개 이상의 백틱 + 옵션 언어 + 내용 + 닫는 백틱
+    const codeBlockRegex = /(```[\w-]*\n[\s\S]*?\n```)/g;
+
+    let match;
+    let index = 0;
+    while ((match = codeBlockRegex.exec(content)) !== null) {
+        codeBlocks.push(match[1]);
+        index++;
+    }
+
+    let processed = content;
+    for (let i = 0; i < codeBlocks.length; i++) {
+        processed = processed.replace(codeBlocks[i], `[[CODE_BLOCK_${i}]]`);
+    }
+
+    return { processed, codeBlocks };
+}
+
+function restoreCodeBlocks(content, codeBlocks) {
+    let restored = content;
+    for (let i = 0; i < codeBlocks.length; i++) {
+        restored = restored.replace(`[[CODE_BLOCK_${i}]]`, codeBlocks[i]);
+    }
+    return restored;
+}
+
+/**
+ * 이미지 추출 및 플레이스홀더로 대체
+ */
+function extractImages(content) {
+    const images = [];
+    const imageRegex = /(!?\[.*?\]\(.*?\))/g;
+
+    let match;
+    while ((match = imageRegex.exec(content)) !== null) {
+        images.push(match[1]);
+    }
+
+    let processed = content;
+    for (let i = 0; i < images.length; i++) {
+        processed = processed.replace(images[i], `[[IMAGE_${i}]]`);
+    }
+
+    return { processed, images };
+}
+
+function restoreImages(content, images) {
+    let restored = content;
+    for (let i = 0; i < images.length; i++) {
+        restored = restored.replace(`[[IMAGE_${i}]]`, images[i]);
+    }
+    return restored;
+}
+
 async function translateContent(ai, title, description, content, targetLocale) {
     const targetLang = LANG_NAMES[targetLocale];
 
-    // 개선된 프롬프트: 이미지/개행/코드블럭 보존 강조
-    const prompt = `You are a professional technical translator specializing in cybersecurity and CTF writeups.
+    // 1. 코드블럭 추출
+    const { processed: contentNoCode, codeBlocks } = extractCodeBlocks(content);
+
+    // 2. 이미지 추출
+    const { processed: contentClean, images } = extractImages(contentNoCode);
+
+    const prompt = `You are a professional technical translator specializing in cybersecurity.
 
 Translate the following Korean blog post to ${targetLang}.
 
-## CRITICAL RULES - MUST FOLLOW:
-
-1. **PRESERVE ALL IMAGES EXACTLY**: Keep ALL image tags like ![...](/images/...) or ![...](https://...) UNCHANGED. Do NOT translate image paths or alt text.
-
-2. **PRESERVE ALL CODE BLOCKS**: Keep ALL code inside \`\`\` blocks EXACTLY as-is. Do NOT translate any code, comments inside code, or variable names.
-
-3. **PRESERVE MARKDOWN STRUCTURE**: 
-   - Keep ALL blank lines between paragraphs (this is CRITICAL for readability)
-   - Keep ALL heading levels (##, ###, etc.)
-   - Keep ALL list formatting (-, *, 1., etc.)
-   - Keep ALL inline code \`like this\` unchanged
-
-4. **PRESERVE LINKS**: Keep ALL URLs unchanged. Only translate the visible link text if it's Korean.
-
-5. **TRANSLATE NATURALLY**: Translate the text content professionally, not literally. Preserve technical accuracy.
+## RULES:
+1. Translate text naturally, not literally.
+2. Keep all placeholders like [[CODE_BLOCK_0]], [[IMAGE_0]] etc. exactly as they are.
+3. Do NOT translate any technical terms inside backticks.
+4. Preserve all Markdown formatting (headers ##, lists -, bold **, etc.)
+5. Keep paragraph breaks (empty lines between paragraphs).
 
 ---
-## INPUT
-
 TITLE: ${title}
 
 DESCRIPTION: ${description || ""}
 
 CONTENT:
-${content}
-
+${contentClean}
 ---
-## OUTPUT FORMAT
 
-Return ONLY valid JSON (no markdown code blocks around it):
-{
-  "title": "translated title here",
-  "description": "translated description here", 
-  "content": "translated markdown content here with all line breaks preserved"
-}
-
-IMPORTANT: In the JSON, use \\n for line breaks to preserve formatting. Make sure the content field contains properly escaped newlines.`;
+Output format (JSON):
+{"title": "translated title", "description": "translated description", "content": "translated content with placeholders preserved"}`;
 
     const response = await ai.models.generateContent({
         model: "gemini-3-pro-preview",
@@ -142,23 +183,25 @@ IMPORTANT: In the JSON, use \\n for line breaks to preserve formatting. Make sur
     const responseText = response.text || "";
 
     try {
-        // JSON 파싱 - 더 관대한 매칭
+        // JSON 파싱
         let jsonStr = responseText;
-
-        // 마크다운 코드블럭 제거
         if (jsonStr.includes("```json")) {
             jsonStr = jsonStr.replace(/```json\s*/g, "").replace(/```\s*/g, "");
         } else if (jsonStr.includes("```")) {
             jsonStr = jsonStr.replace(/```\s*/g, "");
         }
 
-        // JSON 객체 추출
         const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
 
-            // content에서 \\n을 실제 줄바꿈으로 변환
             let translatedContent = parsed.content || content;
+
+            // 3. 이미지 복원
+            translatedContent = restoreImages(translatedContent, images);
+
+            // 4. 코드블럭 복원
+            translatedContent = restoreCodeBlocks(translatedContent, codeBlocks);
 
             return {
                 title: parsed.title || title,
@@ -170,11 +213,14 @@ IMPORTANT: In the JSON, use \\n for line breaks to preserve formatting. Make sur
         console.log(`    ⚠️ JSON parse failed: ${e.message}`);
     }
 
-    // 파싱 실패 시 원본 반환
+    // 파싱 실패 시 이미지/코드블럭 복원 후 원본 반환
+    let fallbackContent = restoreImages(content, images);
+    fallbackContent = restoreCodeBlocks(fallbackContent, codeBlocks);
+
     return {
         title: title,
         description: description || "",
-        content: content,
+        content: fallbackContent,
     };
 }
 
@@ -201,14 +247,15 @@ async function translatePost(ai, post, type) {
             console.error(`    ✗ ${locale.toUpperCase()} failed: ${error.message}`);
         }
 
-        // Rate limiting - 더 긴 딜레이
+        // Rate limiting
         await new Promise(resolve => setTimeout(resolve, 2000));
     }
 }
 
 async function main() {
-    console.log("🌐 Blog Translation Script (Improved)");
-    console.log("=====================================\n");
+    console.log("🌐 Blog Translation Script (Improved v2)");
+    console.log("=========================================\n");
+    console.log("✨ 코드블럭/이미지 사전 추출 → 번역 제외 → 복원\n");
 
     const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
@@ -226,7 +273,7 @@ async function main() {
         console.log();
     }
 
-    console.log("=====================================");
+    console.log("=========================================");
     console.log("✅ Translation complete!");
     console.log(`   Total: ${(POSTS.length + WRITEUPS.length) * LOCALES.length} translations`);
 

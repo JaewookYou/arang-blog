@@ -40,10 +40,10 @@ export async function GET(request: NextRequest) {
         }
 
         const files = data
-            .filter((file) => file.name.endsWith(".mdx"))
+            .filter((file) => file.name.endsWith(".md") || file.name.endsWith(".mdx"))
             .map((file) => ({
                 name: file.name,
-                slug: file.name.replace(".mdx", ""),
+                slug: file.name.replace(/\.(md|mdx)$/, ""),
                 path: file.path,
                 sha: file.sha,
             }));
