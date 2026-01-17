@@ -39,6 +39,8 @@ export function PostLocaleSwitcher({ availableLocales, currentLocale }: PostLoca
     const handleLocaleChange = (locale: string) => {
         // 쿠키 설정
         document.cookie = `locale=${locale}; path=/; max-age=${60 * 60 * 24 * 365}`;
+        // Custom event dispatch로 LanguageSwitcher에 알림
+        window.dispatchEvent(new CustomEvent("localeChange", { detail: { locale } }));
         // 페이지 새로고침
         router.refresh();
     };

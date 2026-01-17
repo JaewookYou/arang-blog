@@ -35,14 +35,30 @@ export function LanguageSwitcher() {
     useEffect(() => {
         setMounted(true);
         // 쿠키에서 현재 언어 읽기
-        const cookies = document.cookie.split("; ");
-        const localeCookie = cookies.find((c) => c.startsWith("locale="));
-        if (localeCookie) {
-            const locale = localeCookie.split("=")[1] as Locale;
-            if (LOCALES.includes(locale)) {
-                setCurrentLocale(locale);
+        const readLocaleFromCookie = () => {
+            const cookies = document.cookie.split("; ");
+            const localeCookie = cookies.find((c) => c.startsWith("locale="));
+            if (localeCookie) {
+                const locale = localeCookie.split("=")[1] as Locale;
+                if (LOCALES.includes(locale)) {
+                    setCurrentLocale(locale);
+                }
             }
-        }
+        };
+
+        readLocaleFromCookie();
+
+        // PostLocaleSwitcher에서 언어 변경 시 동기화
+        const handleLocaleChange = (e: Event) => {
+            const customEvent = e as CustomEvent<{ locale: string }>;
+            const newLocale = customEvent.detail.locale as Locale;
+            if (LOCALES.includes(newLocale)) {
+                setCurrentLocale(newLocale);
+            }
+        };
+
+        window.addEventListener("localeChange", handleLocaleChange);
+        return () => window.removeEventListener("localeChange", handleLocaleChange);
     }, []);
 
     const switchLocale = (newLocale: Locale) => {
