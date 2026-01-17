@@ -23,44 +23,58 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          command_timeout: 10m
+          command_timeout: 15m
           script: |
+            set -e  # 에러 발생 시 중단
+            
             # fnm 환경 로드
             export PATH="$HOME/.local/share/fnm:$PATH"
             eval "$(fnm env)"
             
             cd /home/arang/web/blog
             
-            # 배포 락 체크 (동시 실행 방지 추가 보안)
+            # 배포 락 체크 (동시 실행 방지)
             LOCK_FILE="/tmp/arang-blog-deploy.lock"
             if [ -f "$LOCK_FILE" ]; then
               LOCK_AGE=$(($(date +%s) - $(stat -c %Y "$LOCK_FILE")))
-              if [ $LOCK_AGE -lt 300 ]; then
-                echo "⏳ 다른 배포가 진행 중입니다. 대기..."
-                sleep 30
-              else
-                echo "🔓 오래된 락 파일 제거"
-                rm -f "$LOCK_FILE"
+              if [ $LOCK_AGE -lt 600 ]; then
+                echo "⏳ 다른 배포가 진행 중입니다. 대기 (60초)..."
+                sleep 60
               fi
+              echo "🔓 락 파일 제거 후 진행"
+              rm -f "$LOCK_FILE"
             fi
             touch "$LOCK_FILE"
             
-            # 안전한 Git 동기화 (충돌 방지)
+            # PM2 중지 (빌드 중 서버 접근 방지)
+            echo "⏸️ Stopping server..."
+            pm2 stop arang-blog || true
+            
+            # 안전한 Git 동기화
             echo "📥 Fetching latest changes..."
             git fetch origin main
             git reset --hard origin/main
             
-            # Install dependencies
+            # 클린 설치
             echo "📦 Installing dependencies..."
+            rm -rf node_modules/.cache
             npm ci --legacy-peer-deps
+            npm rebuild better-sqlite3
             
-            # Build
+            # 빌드
             echo "🔨 Building..."
             npm run build
             
-            # Reload PM2
-            echo "🔄 Reloading PM2..."
-            pm2 reload arang-blog --update-env
+            # 빌드 완료 확인
+            if [ ! -f ".next/prerender-manifest.json" ]; then
+              echo "❌ Build failed - prerender-manifest.json not found"
+              rm -f "$LOCK_FILE"
+              exit 1
+            fi
+            
+            # PM2 시작
+            echo "🔄 Starting server..."
+            pm2 start arang-blog --update-env || pm2 restart arang-blog --update-env
             
             # 락 파일 제거
             rm -f "$LOCK_FILE"
