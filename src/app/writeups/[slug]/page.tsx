@@ -1,12 +1,12 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { writeups } from "@/.velite";
-import { MDXContent } from "@/components/mdx-content";
 import { formatDate } from "@/lib/utils";
 import { Comments } from "@/components/comments";
 import { ReadingProgress } from "@/components/reading-progress";
 import { TableOfContents } from "@/components/table-of-contents";
 import { PostLocaleSwitcher } from "@/components/post-locale-switcher";
+import { ContentRenderer } from "@/components/content-renderer";
 import { getTranslation, getAvailableLocales, type Locale } from "@/lib/db";
 
 /**
@@ -200,7 +200,7 @@ export default async function WriteupPage({ params }: WriteupPageProps) {
 
                 {/* Content */}
                 <div className="prose prose-zinc dark:prose-invert max-w-none">
-                    <div dangerouslySetInnerHTML={{ __html: displayContent }} />
+                    <ContentRenderer content={displayContent} />
                 </div>
 
                 {/* Comments */}
