@@ -5,6 +5,7 @@ import {
     getAllStaticPageContent,
     saveStaticPageContent,
 } from "@/lib/db";
+import { homeTranslations, profileTranslations } from "@/lib/translations";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 /**
@@ -14,6 +15,16 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
  */
 
 const LOCALES = ["ko", "en", "ja", "zh"] as const;
+
+// 기본 템플릿 (translations.ts의 실제 데이터)
+function getDefaultTemplate(pageKey: string): string | null {
+    if (pageKey === "home") {
+        return JSON.stringify(homeTranslations.ko, null, 2);
+    } else if (pageKey === "about") {
+        return JSON.stringify(profileTranslations.ko, null, 2);
+    }
+    return null;
+}
 
 // GET: 정적 페이지 콘텐츠 조회
 export async function GET(request: Request) {
@@ -30,14 +41,17 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: "page parameter required" }, { status: 400 });
     }
 
+    // 기본 템플릿 가져오기
+    const defaultTemplate = getDefaultTemplate(pageKey);
+
     if (locale) {
         // 특정 언어 조회
         const content = getStaticPageContent(pageKey, locale);
-        return NextResponse.json({ content });
+        return NextResponse.json({ content, defaultTemplate });
     } else {
         // 모든 언어 조회
         const contents = getAllStaticPageContent(pageKey);
-        return NextResponse.json({ contents });
+        return NextResponse.json({ contents, defaultTemplate });
     }
 }
 

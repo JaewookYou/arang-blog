@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Save, RefreshCw, Globe, Home, User } from "lucide-react";
+import { Save, RefreshCw, Globe, Home, User, Download } from "lucide-react";
 import Link from "next/link";
 
 /**
@@ -13,45 +13,6 @@ import Link from "next/link";
 
 type PageType = "home" | "about";
 type Locale = "ko" | "en" | "ja" | "zh";
-
-interface PageContent {
-    [key: string]: string | string[];
-}
-
-// 기본 템플릿 (translations.ts 구조 기반)
-const defaultTemplates: Record<PageType, PageContent> = {
-    home: {
-        heroTitle1: "Security Research",
-        heroTitle2: "CTF Writeups",
-        heroDescription: "웹 보안, 리버스 엔지니어링, 포렌식 등 다양한 보안 연구와 CTF 대회 문제 풀이를 공유합니다.",
-        blogPosts: "📝 블로그 포스트",
-        ctfWriteups: "🚩 CTF Writeups",
-        about: "🔐 About",
-        whoami: "whoami",
-        role: "Security Researcher | CTF Player | Developer",
-    },
-    about: {
-        name: "유재욱",
-        subtitle: "Security Researcher & CTF Player",
-        careerItems: [
-            "금융보안원 보안평가부 RED IRIS팀 (모의해킹팀) (2019 ~ )",
-            "KITRI Best of the Best & Whitehat School 멘토 (2023 ~ )",
-        ],
-        awardItems: [
-            "2019.09. 특허 등록 - 이중 패킹을 이용한 코드 난독화",
-            "2018.12. 한국정보보호학회 동계학술대회 우수논문상",
-        ],
-        bugBountyItems: [
-            "CVE-2025-11221 - GTONE ChangeFlow RCE",
-            "CVE-2025-11182 - GTONE ChangeFlow Path Traversal",
-        ],
-        ctfItems: [
-            "2025 DEF CON CTF 예선 2위",
-            "2024 DEF CON CTF 예선 2위, 본선 3위",
-        ],
-        interestItems: ["Web Security", "CTF", "Penetration Testing"],
-    },
-};
 
 const localeNames: Record<Locale, string> = {
     ko: "🇰🇷 한국어",
@@ -65,6 +26,7 @@ export default function StaticPagesAdmin() {
     const [selectedLocale, setSelectedLocale] = useState<Locale>("ko");
     const [content, setContent] = useState<string>("");
     const [savedContents, setSavedContents] = useState<Record<Locale, string>>({} as Record<Locale, string>);
+    const [defaultTemplate, setDefaultTemplate] = useState<string>("");
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -83,16 +45,20 @@ export default function StaticPagesAdmin() {
                 });
             }
 
+            // 기본 템플릿 저장
+            if (data.defaultTemplate) {
+                setDefaultTemplate(data.defaultTemplate);
+            }
+
             // 저장된 콘텐츠가 없으면 기본 템플릿 사용
-            if (!contents.ko) {
-                contents.ko = JSON.stringify(defaultTemplates[selectedPage], null, 2);
+            if (!contents.ko && data.defaultTemplate) {
+                contents.ko = data.defaultTemplate;
             }
 
             setSavedContents(contents);
             setContent(contents[selectedLocale] || contents.ko || "");
         } catch (error) {
             console.error("Failed to load content:", error);
-            setContent(JSON.stringify(defaultTemplates[selectedPage], null, 2));
         }
         setLoading(false);
     };
@@ -146,6 +112,14 @@ export default function StaticPagesAdmin() {
         }
 
         setSaving(false);
+    };
+
+    // 기본 템플릿 불러오기
+    const loadDefaultTemplate = () => {
+        if (defaultTemplate) {
+            setContent(defaultTemplate);
+            setMessage({ type: "success", text: "기본 템플릿을 불러왔습니다." });
+        }
     };
 
     return (
@@ -223,8 +197,8 @@ export default function StaticPagesAdmin() {
                 {message && (
                     <div
                         className={`p-3 rounded-lg ${message.type === "success"
-                                ? "bg-green-500/10 text-green-500"
-                                : "bg-red-500/10 text-red-500"
+                            ? "bg-green-500/10 text-green-500"
+                            : "bg-red-500/10 text-red-500"
                             }`}
                     >
                         {message.text}
@@ -246,6 +220,12 @@ export default function StaticPagesAdmin() {
                         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                         새로고침
                     </Button>
+                    {selectedLocale === "ko" && defaultTemplate && (
+                        <Button variant="outline" onClick={loadDefaultTemplate}>
+                            <Download className="h-4 w-4 mr-2" />
+                            기본 템플릿 불러오기
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -257,6 +237,7 @@ export default function StaticPagesAdmin() {
                     <li>한국어(ko)에서 저장하면 영어, 일본어, 중국어로 자동 번역됩니다.</li>
                     <li>배열 항목(careerItems, ctfItems 등)도 자동으로 번역됩니다.</li>
                     <li>CVE ID, 팀 이름 등 고유명사는 번역되지 않습니다.</li>
+                    <li>&quot;기본 템플릿 불러오기&quot; 버튼으로 현재 코드의 데이터를 불러올 수 있습니다.</li>
                 </ul>
             </div>
         </div>
