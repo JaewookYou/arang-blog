@@ -1,112 +1,46 @@
 ---
-title: "Selenium v4.10+ TypeError 에러 해결 (webdriver-manager)"
-description: "Selenium 최신 버전에서 발생하는 TypeError 및 LATEST_RELEASE not found 에러 해결 방법"
+title: "Selenium v4.10+ TypeError 에러 + webdriver-manager 에러 해결"
+description: "Selenium 최신 버전에서 발생하는 TypeError와 webdriver-manager LATEST_RELEASE not found 에러 해결 방법"
 date: 2023-06-15
+tags: ["selenium", "python", "webdriver", "troubleshooting"]
+category: "Tips"
 published: true
-tags: ["python", "selenium", "troubleshooting"]
 ---
 
-## 문제 상황
+# Selenium v4.10+ TypeError 에러 + webdriver-manager 에러 해결
 
-셀레니움 봇 만드려는데 그냥 `pip3 install selenium` 하고 기존 쓰던 코드 적용하니 온갖 에러가 났다.
+셀레니움 봇 만드려는데 그냥 `pip3 install selenium` 하고 기존 쓰던 코드 적용하니 온갖 에러가 난다.
 
----
-
-## 에러 1: LATEST_RELEASE not found
-
-webdriver-manager 적용 시 최신 크롬 드라이버를 못 찾아서 에러가 발생.
-
-### 해결
+## 1. webdriver-manager 적용시 최신 크롬 드라이버를 못찾아서 에러가 남
 
 ```bash
 pip3 install git+https://github.com/SergeyPirogov/webdriver_manager
 ```
 
-최신 webdriver_manager를 GitHub에서 직접 설치하면 해결된다.
+**최신 webdriver_manager를 설치함으로써 해결**
 
----
-
-## 에러 2: Python 버전 문제
-
-webdriver-manager 최신 버전은 **Python 3.7 이상**이 필요하다.
-
-### 해결
+## 2. webdriver-manager 최신버전은 python 3.7 이상버전이 필요
 
 ```bash
-# Python 3.7 이상 버전 설치
-pyenv install 3.10.0
-pyenv global 3.10.0
+# python 3.7 이상 버전 설치
 ```
 
----
+## 3. TypeError: __init__() got multiple values for argument 'options' 에러
 
-## 에러 3: TypeError: __init__() got unexpected keyword argument
+드래그한 부분이 에러인데, `TypeError: __init__() got multiple values for argument 'options'`라고 뜬다.
 
-```
-TypeError: __init__() got multiple values for argument 'options'
-```
-
-실제론 `options` 때문에 에러나는 건 아니고, Selenium v4.10+ 에서 API가 변경되었다.
-
-### 해결
-
-**기존 코드 (v4.9 이하):**
+실제론 options땜에 에러나는건 아니고 selenium 4.10 이상부터 webdriver path 지정을 **Service**라는 애를 통해서 해야하는걸로 변했다고 한다(ㅡㅡ..)
 
 ```python
-from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
-
-driver = webdriver.Chrome(ChromeDriverManager().install())
-```
-
-**수정된 코드 (v4.10+):**
-
-```python
-from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
-
-service = Service(ChromeDriverManager().install())
-driver = webdriver.Chrome(service=service)
+...
+self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 ```
 
-핵심은 `Service` 객체를 사용하는 것이다!
+**Selenium Service를 이용해서 ChromeDriverManager().install() 사용**
 
----
+## 4. desired_capabilities도 deprecated됨
 
-## 전체 예제 코드
+추가로 `desired_capabilities`도 deprecated됐는데 난 그냥 짜증나서 쓰고있던 desired_capabilities 기능을 빼고 썼다.
 
-```python
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.chrome.options import Options
-from webdriver_manager.chrome import ChromeDriverManager
-
-# Chrome 옵션 설정
-options = Options()
-options.add_argument('--headless')  # 헤드리스 모드
-options.add_argument('--no-sandbox')
-options.add_argument('--disable-dev-shm-usage')
-
-# Service 객체로 드라이버 설정
-service = Service(ChromeDriverManager().install())
-
-# WebDriver 실행
-driver = webdriver.Chrome(service=service, options=options)
-
-# 페이지 접속
-driver.get('https://example.com')
-print(driver.title)
-
-driver.quit()
-```
-
----
-
-## 요약
-
-| 문제 | 해결책 |
-|------|--------|
-| LATEST_RELEASE not found | GitHub에서 최신 webdriver_manager 설치 |
-| Python 버전 오류 | Python 3.7+ 사용 |
-| TypeError | `Service` 객체 사용하여 드라이버 초기화 |
+어떻게 options로 이관 혹은 다른 방법을 통해 사용하는지 아시는 분은 댓글 주시면 감사드리겠습니다.

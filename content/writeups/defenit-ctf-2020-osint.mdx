@@ -1,0 +1,56 @@
+---
+title: "Defenit CTF 2020 OSINT 출제자 Writeup"
+description: "암호화폐와 악성코드 C2 서버를 주제로 한 OSINT 문제 출제자 풀이"
+date: 2020-06-06
+tags: ["defenit-ctf", "osint", "cryptocurrency", "malware"]
+ctf: "Defenit CTF 2020"
+published: true
+---
+
+# Defenit CTF 2020 OSINT Author Writeup
+
+## Bad Tumbler, Hack the C2 (@arang)
+
+이번 Defenit CTF 2020에선 **OSINT 분야 출제**를 맡았습니다.
+
+본래 주 분야가 웹이라 웹과 OSINT를 엮어서 할 수 있는 문제를 만드는것을 목표로 하여 문제를 구상하였습니다.
+
+---
+
+## OSINT 분야에 대한 생각
+
+'인터넷 상에 공개된 정보를 토대로 해커의 정보를 얻거나 그를 특정하는 것'이 OSINT라는 분야의 주된 목적이라 생각하였고, 이를 최근 트렌드와 엮어:
+
+- **Bad Tumbler:** 암호화폐
+- **Hack the C2:** 악성코드의 C2서버
+
+등을 이용한 해커의 악의적 동작을 막아내는 것을 주 컨셉으로 잡고 문제를 구상·제작 하였습니다.
+
+---
+
+## Bad Tumbler
+
+### 문제 설명
+
+암호화폐 텀블러(Tumbler)를 통한 자금 세탁 추적
+
+### 풀이 방향
+
+1. 블록체인 트랜잭션 분석
+2. 암호화폐 주소 클러스터링
+3. 거래소 계정 특정
+
+---
+
+## Hack the C2
+
+### 문제 설명
+
+악성코드 C2 서버의 정보를 수집하여 해커를 추적
+
+### 풀이 방향
+
+1. C2 서버 발견
+2. 서버 정보 수집 (WHOIS, DNS, SSL Cert 등)
+3. 관련 인프라 매핑
+4. 해커 신원 특정

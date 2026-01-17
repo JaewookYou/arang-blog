@@ -1,0 +1,56 @@
+---
+title: "2019 hack.lu CTF - RPDG Writeup"
+description: "SQL Injection과 빈도수 분석을 통한 admin password 유추"
+date: 2019-10-25
+tags: ["hacklu", "sql-injection", "misc", "frequency-analysis"]
+ctf: "hack.lu CTF 2019"
+published: true
+---
+
+# [Write-up] 2019 hack.lu CTF [WEB+MISC] - "RPDG"
+
+## Summary
+
+해당 문제는 **WEB + MISC** 복합 문제입니다.
+
+- **Stage 1:** 웹 (SQL Injection)
+- **Stage 2:** MISC (빈도수 분석)
+
+기본적으로는 SQL injection을 통해 정보를 획득하고, 이후 빈도수에 따라 admin password를 유추하는 문제입니다.
+
+---
+
+## Vulnerability
+
+문제 페이지를 보면 유튜브 영상들이 있고 해당 영상 미리보기 이미지를 클릭할 시:
+
+```
+/open.php?title={Base64 encoded movie name}
+```
+
+를 통해 유튜브로 이동하게 됩니다.
+
+넘기는 title 파라미터를 base64 decode 해볼 시 link 주소가 아니기 때문에 **내부 데이터베이스에 정보가 매핑**되어 있고, 해당 파라미터의 정보가 DB로 들어갈 것을 유추해 볼 수 있습니다.
+
+---
+
+## SQL Injection
+
+### DB Schema 추출
+
+```
+schema: rpdg
+table: culture, tracking
+column culture: id, link, title, year
+column tracking: id, key, path, timestamp, user
+```
+
+### 데이터 추출
+
+tracking 테이블에서 admin의 key(password) 정보 추출
+
+---
+
+## MISC - 빈도수 분석
+
+추출한 데이터를 빈도수 분석하여 admin password 복원

