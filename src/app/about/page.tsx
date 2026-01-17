@@ -18,7 +18,7 @@ export default async function AboutPage() {
     const t = profileTranslations[locale] || profileTranslations.ko;
 
     return (
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-4xl mx-auto">
             <div className="space-y-8">
                 {/* Header */}
                 <div className="space-y-4">
@@ -30,29 +30,69 @@ export default async function AboutPage() {
                     </p>
                 </div>
 
-                {/* Career */}
-                <div className="prose prose-zinc dark:prose-invert max-w-none">
-                    <h2>{t.career}</h2>
-                    <ul>
-                        {t.careerItems.map((item, i) => (
-                            <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
-                        ))}
-                    </ul>
+                {/* Main Content - 2 Column Grid on larger screens */}
+                <div className="grid gap-8 lg:grid-cols-2">
+                    {/* Left Column */}
+                    <div className="space-y-6">
+                        {/* Career */}
+                        <section className="prose prose-zinc dark:prose-invert prose-sm max-w-none">
+                            <h2 className="text-xl font-semibold mb-3">{t.career}</h2>
+                            <ul className="space-y-1.5 text-sm">
+                                {t.careerItems.map((item, i) => (
+                                    <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
+                                ))}
+                            </ul>
+                        </section>
 
-                    <h2>{t.awards}</h2>
-                    <ul>
-                        {t.awardItems.map((item, i) => (
-                            <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
-                        ))}
-                    </ul>
+                        {/* Awards */}
+                        <section className="prose prose-zinc dark:prose-invert prose-sm max-w-none">
+                            <h2 className="text-xl font-semibold mb-3">{t.awards}</h2>
+                            <ul className="space-y-1.5 text-sm">
+                                {t.awardItems.map((item, i) => (
+                                    <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
+                                ))}
+                            </ul>
+                        </section>
+                    </div>
 
-                    <h2>{t.interests}</h2>
-                    <ul>
-                        {t.interestItems.map((item, i) => (
-                            <li key={i}><strong>{item}</strong></li>
-                        ))}
-                    </ul>
+                    {/* Right Column */}
+                    <div className="space-y-6">
+                        {/* Bug Bounty & CVE */}
+                        <section className="prose prose-zinc dark:prose-invert prose-sm max-w-none">
+                            <h2 className="text-xl font-semibold mb-3">{t.bugBounty}</h2>
+                            <ul className="space-y-1.5 text-sm">
+                                {t.bugBountyItems.map((item, i) => (
+                                    <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
+                                ))}
+                            </ul>
+                        </section>
+
+                        {/* CTF Records */}
+                        <section className="prose prose-zinc dark:prose-invert prose-sm max-w-none">
+                            <h2 className="text-xl font-semibold mb-3">{t.ctf}</h2>
+                            <ul className="space-y-1.5 text-sm max-h-80 overflow-y-auto pr-2">
+                                {t.ctfItems.map((item, i) => (
+                                    <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
+                                ))}
+                            </ul>
+                        </section>
+                    </div>
                 </div>
+
+                {/* Interests - Full Width */}
+                <section className="prose prose-zinc dark:prose-invert max-w-none">
+                    <h2 className="text-xl font-semibold mb-3">{t.interests}</h2>
+                    <div className="flex flex-wrap gap-2">
+                        {t.interestItems.map((item, i) => (
+                            <span
+                                key={i}
+                                className="px-3 py-1.5 bg-primary/10 text-primary rounded-full text-sm font-medium"
+                            >
+                                {item}
+                            </span>
+                        ))}
+                    </div>
+                </section>
 
                 {/* Contact */}
                 <div className="border-t border-border pt-8">
