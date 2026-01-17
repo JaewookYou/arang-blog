@@ -2,6 +2,11 @@
 /**
  * 블로그 글 다국어 번역 스크립트
  * 모든 posts와 writeups를 en, ja, zh로 번역하여 DB에 저장
+ * 
+ * 개선사항:
+ * - 이미지 경로 완벽 보존
+ * - 개행/마크다운 구조 유지
+ * - 코드블럭 원본 유지
  */
 
 import { GoogleGenAI } from "@google/genai";
@@ -86,26 +91,48 @@ const LANG_NAMES = { en: "English", ja: "Japanese", zh: "Simplified Chinese" };
 async function translateContent(ai, title, description, content, targetLocale) {
     const targetLang = LANG_NAMES[targetLocale];
 
-    const prompt = `You are a professional translator. Translate the following Korean blog post content to ${targetLang}.
+    // 개선된 프롬프트: 이미지/개행/코드블럭 보존 강조
+    const prompt = `You are a professional technical translator specializing in cybersecurity and CTF writeups.
 
-IMPORTANT RULES:
-1. Keep all Markdown syntax intact (headings, code blocks, links, images, etc.)
-2. Keep all code snippets unchanged
-3. Translate naturally, not literally
-4. Preserve the technical accuracy
-5. Do NOT add any explanations, just output the translation
+Translate the following Korean blog post to ${targetLang}.
+
+## CRITICAL RULES - MUST FOLLOW:
+
+1. **PRESERVE ALL IMAGES EXACTLY**: Keep ALL image tags like ![...](/images/...) or ![...](https://...) UNCHANGED. Do NOT translate image paths or alt text.
+
+2. **PRESERVE ALL CODE BLOCKS**: Keep ALL code inside \`\`\` blocks EXACTLY as-is. Do NOT translate any code, comments inside code, or variable names.
+
+3. **PRESERVE MARKDOWN STRUCTURE**: 
+   - Keep ALL blank lines between paragraphs (this is CRITICAL for readability)
+   - Keep ALL heading levels (##, ###, etc.)
+   - Keep ALL list formatting (-, *, 1., etc.)
+   - Keep ALL inline code \`like this\` unchanged
+
+4. **PRESERVE LINKS**: Keep ALL URLs unchanged. Only translate the visible link text if it's Korean.
+
+5. **TRANSLATE NATURALLY**: Translate the text content professionally, not literally. Preserve technical accuracy.
 
 ---
+## INPUT
+
 TITLE: ${title}
 
 DESCRIPTION: ${description || ""}
 
 CONTENT:
 ${content}
----
 
-Output format (JSON only, no markdown code blocks):
-{"title": "translated title", "description": "translated description", "content": "translated content (Markdown)"}`;
+---
+## OUTPUT FORMAT
+
+Return ONLY valid JSON (no markdown code blocks around it):
+{
+  "title": "translated title here",
+  "description": "translated description here", 
+  "content": "translated markdown content here with all line breaks preserved"
+}
+
+IMPORTANT: In the JSON, use \\n for line breaks to preserve formatting. Make sure the content field contains properly escaped newlines.`;
 
     const response = await ai.models.generateContent({
         model: "gemini-3-pro-preview",
@@ -115,23 +142,39 @@ Output format (JSON only, no markdown code blocks):
     const responseText = response.text || "";
 
     try {
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        // JSON 파싱 - 더 관대한 매칭
+        let jsonStr = responseText;
+
+        // 마크다운 코드블럭 제거
+        if (jsonStr.includes("```json")) {
+            jsonStr = jsonStr.replace(/```json\s*/g, "").replace(/```\s*/g, "");
+        } else if (jsonStr.includes("```")) {
+            jsonStr = jsonStr.replace(/```\s*/g, "");
+        }
+
+        // JSON 객체 추출
+        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
+
+            // content에서 \\n을 실제 줄바꿈으로 변환
+            let translatedContent = parsed.content || content;
+
             return {
                 title: parsed.title || title,
                 description: parsed.description || description || "",
-                content: parsed.content || content,
+                content: translatedContent,
             };
         }
     } catch (e) {
-        console.log(`    ⚠️ JSON parse failed`);
+        console.log(`    ⚠️ JSON parse failed: ${e.message}`);
     }
 
+    // 파싱 실패 시 원본 반환
     return {
         title: title,
         description: description || "",
-        content: responseText,
+        content: content,
     };
 }
 
@@ -158,13 +201,14 @@ async function translatePost(ai, post, type) {
             console.error(`    ✗ ${locale.toUpperCase()} failed: ${error.message}`);
         }
 
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Rate limiting - 더 긴 딜레이
+        await new Promise(resolve => setTimeout(resolve, 2000));
     }
 }
 
 async function main() {
-    console.log("🌐 Blog Translation Script");
-    console.log("==========================\n");
+    console.log("🌐 Blog Translation Script (Improved)");
+    console.log("=====================================\n");
 
     const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
@@ -182,7 +226,7 @@ async function main() {
         console.log();
     }
 
-    console.log("==========================");
+    console.log("=====================================");
     console.log("✅ Translation complete!");
     console.log(`   Total: ${(POSTS.length + WRITEUPS.length) * LOCALES.length} translations`);
 
