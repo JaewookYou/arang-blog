@@ -69,6 +69,17 @@ export function getDatabase(): Database.Database {
 
             CREATE UNIQUE INDEX IF NOT EXISTS idx_translations_unique ON translations(slug, type, locale);
             CREATE INDEX IF NOT EXISTS idx_translations_slug ON translations(slug, type);
+
+            -- 정적 페이지 콘텐츠 테이블 (home, about 등)
+            CREATE TABLE IF NOT EXISTS static_pages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                page_key TEXT NOT NULL,
+                locale TEXT NOT NULL,
+                content TEXT NOT NULL,
+                updated_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_static_pages_unique ON static_pages(page_key, locale);
         `);
     }
 
@@ -328,4 +339,67 @@ export function getAvailableLocales(slug: string, type: string): string[] {
         .prepare("SELECT DISTINCT locale FROM translations WHERE slug = ? AND type = ?")
         .all(slug, type) as { locale: string }[];
     return results.map(r => r.locale);
+}
+
+// ============ Static Pages ============
+
+export interface StaticPageContent {
+    id: number;
+    page_key: string;
+    locale: string;
+    content: string;
+    updated_at: string;
+}
+
+// 정적 페이지 콘텐츠 조회
+export function getStaticPageContent(pageKey: string, locale: string): StaticPageContent | null {
+    const db = getDatabase();
+    const result = db
+        .prepare("SELECT * FROM static_pages WHERE page_key = ? AND locale = ?")
+        .get(pageKey, locale) as StaticPageContent | undefined;
+    return result || null;
+}
+
+// 정적 페이지 모든 언어 콘텐츠 조회
+export function getAllStaticPageContent(pageKey: string): StaticPageContent[] {
+    const db = getDatabase();
+    return db
+        .prepare("SELECT * FROM static_pages WHERE page_key = ? ORDER BY locale")
+        .all(pageKey) as StaticPageContent[];
+}
+
+// 정적 페이지 콘텐츠 저장/업데이트
+export function saveStaticPageContent(
+    pageKey: string,
+    locale: string,
+    content: string
+): StaticPageContent {
+    const db = getDatabase();
+
+    db.prepare(`
+        INSERT INTO static_pages (page_key, locale, content)
+        VALUES (?, ?, ?)
+        ON CONFLICT(page_key, locale) DO UPDATE SET
+            content = excluded.content,
+            updated_at = datetime('now')
+    `).run(pageKey, locale, content);
+
+    return getStaticPageContent(pageKey, locale)!;
+}
+
+// 정적 페이지 콘텐츠 삭제
+export function deleteStaticPageContent(pageKey: string, locale?: string): number {
+    const db = getDatabase();
+
+    if (locale) {
+        const result = db
+            .prepare("DELETE FROM static_pages WHERE page_key = ? AND locale = ?")
+            .run(pageKey, locale);
+        return result.changes;
+    } else {
+        const result = db
+            .prepare("DELETE FROM static_pages WHERE page_key = ?")
+            .run(pageKey);
+        return result.changes;
+    }
 }

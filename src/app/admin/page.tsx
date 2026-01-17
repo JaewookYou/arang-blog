@@ -15,7 +15,8 @@ import {
     Shield,
     LogOut,
     PenSquare,
-    AlertTriangle
+    AlertTriangle,
+    Globe
 } from "lucide-react";
 
 /**
@@ -142,6 +143,18 @@ export default async function AdminPage() {
                             <div className="font-medium">Honeypot 로그</div>
                             <div className="text-sm text-muted-foreground">
                                 악의적인 접근 시도 확인
+                            </div>
+                        </div>
+                    </Link>
+                    <Link
+                        href="/admin/static-pages"
+                        className="flex items-center gap-3 p-4 rounded-lg border border-border hover:border-primary transition-colors"
+                    >
+                        <Globe className="h-6 w-6 text-purple-500" />
+                        <div>
+                            <div className="font-medium">정적 페이지 편집</div>
+                            <div className="text-sm text-muted-foreground">
+                                Home, About 페이지 편집 (자동 번역)
                             </div>
                         </div>
                     </Link>
