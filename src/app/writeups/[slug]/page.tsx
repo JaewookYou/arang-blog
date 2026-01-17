@@ -115,12 +115,10 @@ export default async function WriteupPage({ params }: WriteupPageProps) {
     if (currentLocale !== "ko") {
         const translation = getTranslation(slug, "writeup", currentLocale);
         if (translation) {
-            // Velite와 동일한 렌더링 파이프라인 사용
-            const { markdownToHtml } = await import("@/lib/markdown");
-
             displayTitle = translation.title;
             displayDescription = translation.description || writeup.description;
-            displayContent = await markdownToHtml(translation.content);
+            // DB에 이미 HTML로 저장되어 있음 (번역 스크립트에서 변환)
+            displayContent = translation.content;
             isTranslated = true;
         }
     }
