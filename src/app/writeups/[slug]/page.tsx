@@ -1,14 +1,17 @@
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { writeups } from "@/.velite";
 import { MDXContent } from "@/components/mdx-content";
 import { formatDate } from "@/lib/utils";
 import { Comments } from "@/components/comments";
 import { ReadingProgress } from "@/components/reading-progress";
 import { TableOfContents } from "@/components/table-of-contents";
+import { PostLocaleSwitcher } from "@/components/post-locale-switcher";
+import { getTranslation, getAvailableLocales, type Locale } from "@/lib/db";
 
 /**
  * Writeup Detail Page
- * CTF Writeup 상세 페이지
+ * CTF Writeup 상세 페이지 (다국어 지원)
  */
 
 interface WriteupPageProps {
@@ -35,7 +38,9 @@ const difficultyColors: Record<string, string> = {
 
 // 정적 경로 생성
 export async function generateStaticParams() {
-    return writeups.map((writeup) => ({ slug: writeup.slug }));
+    return writeups
+        .filter((w) => !w.slug.endsWith("-en") && !w.slug.endsWith("-ja") && !w.slug.endsWith("-zh"))
+        .map((writeup) => ({ slug: writeup.slug }));
 }
 
 // 동적 메타데이터
@@ -48,30 +53,37 @@ export async function generateMetadata({ params }: WriteupPageProps) {
         return { title: "Writeup Not Found" };
     }
 
-    const description = writeup.description || `${writeup.ctf} - ${writeup.category} challenge writeup`;
-    const ogImageUrl = `/api/og?title=${encodeURIComponent(writeup.title)}&type=writeup&description=${encodeURIComponent(description)}`;
+    // 쿠키에서 언어 확인
+    const cookieStore = await cookies();
+    const locale = cookieStore.get("locale")?.value as Locale || "ko";
+
+    let title = writeup.title;
+    let description = writeup.description || `${writeup.ctf} - ${writeup.category} challenge writeup`;
+
+    if (locale !== "ko") {
+        const translation = getTranslation(slug, "writeup", locale);
+        if (translation) {
+            title = translation.title;
+            description = translation.description || description;
+        }
+    }
+
+    const ogImageUrl = `/api/og?title=${encodeURIComponent(title)}&type=writeup&description=${encodeURIComponent(description)}`;
 
     return {
-        title: `${writeup.title} | ${writeup.ctf}`,
+        title: `${title} | ${writeup.ctf}`,
         description,
         openGraph: {
-            title: `${writeup.title} | ${writeup.ctf}`,
+            title: `${title} | ${writeup.ctf}`,
             description,
             type: "article",
             publishedTime: writeup.date,
             tags: writeup.tags,
-            images: [
-                {
-                    url: ogImageUrl,
-                    width: 1200,
-                    height: 630,
-                    alt: writeup.title,
-                },
-            ],
+            images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
         },
         twitter: {
             card: "summary_large_image",
-            title: `${writeup.title} | ${writeup.ctf}`,
+            title: `${title} | ${writeup.ctf}`,
             description,
             images: [ogImageUrl],
         },
@@ -87,12 +99,41 @@ export default async function WriteupPage({ params }: WriteupPageProps) {
         notFound();
     }
 
+    // 쿠키에서 현재 언어 확인
+    const cookieStore = await cookies();
+    const currentLocale = (cookieStore.get("locale")?.value as Locale) || "ko";
+
+    // 사용 가능한 번역 언어 조회
+    const availableLocales = getAvailableLocales(slug, "writeup");
+
+    // 번역 데이터 조회
+    let displayTitle = writeup.title;
+    let displayDescription = writeup.description;
+    let displayContent = writeup.body;
+    let isTranslated = false;
+
+    if (currentLocale !== "ko") {
+        const translation = getTranslation(slug, "writeup", currentLocale);
+        if (translation) {
+            displayTitle = translation.title;
+            displayDescription = translation.description || writeup.description;
+            displayContent = translation.content;
+            isTranslated = true;
+        }
+    }
+
     return (
         <>
             <ReadingProgress />
             <TableOfContents />
 
             <article className="max-w-3xl mx-auto">
+                {/* 언어 선택 */}
+                <PostLocaleSwitcher
+                    availableLocales={availableLocales}
+                    currentLocale={currentLocale}
+                />
+
                 {/* Header */}
                 <header className="mb-8 space-y-4">
                     {/* CTF Info Bar */}
@@ -108,15 +149,20 @@ export default async function WriteupPage({ params }: WriteupPageProps) {
                                 {writeup.difficulty}
                             </span>
                         )}
+                        {isTranslated && (
+                            <span className="text-xs text-blue-500">
+                                🌐 번역됨
+                            </span>
+                        )}
                     </div>
 
                     <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                        {writeup.title}
+                        {displayTitle}
                     </h1>
 
-                    {writeup.description && (
+                    {displayDescription && (
                         <p className="text-lg text-muted-foreground">
-                            {writeup.description}
+                            {displayDescription}
                         </p>
                     )}
 
@@ -153,7 +199,11 @@ export default async function WriteupPage({ params }: WriteupPageProps) {
 
                 {/* Content */}
                 <div className="prose prose-zinc dark:prose-invert max-w-none">
-                    <MDXContent code={writeup.body} />
+                    {isTranslated ? (
+                        <div dangerouslySetInnerHTML={{ __html: displayContent }} />
+                    ) : (
+                        <MDXContent code={displayContent} />
+                    )}
                 </div>
 
                 {/* Comments */}

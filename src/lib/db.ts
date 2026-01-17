@@ -53,6 +53,22 @@ export function getDatabase(): Database.Database {
 
             CREATE INDEX IF NOT EXISTS idx_honeypot_timestamp ON honeypot_logs(timestamp);
             CREATE INDEX IF NOT EXISTS idx_honeypot_ip ON honeypot_logs(ip);
+
+            -- 번역 테이블
+            CREATE TABLE IF NOT EXISTS translations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                slug TEXT NOT NULL,
+                type TEXT NOT NULL DEFAULT 'post',
+                locale TEXT NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT,
+                content TEXT NOT NULL,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now'))
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_translations_unique ON translations(slug, type, locale);
+            CREATE INDEX IF NOT EXISTS idx_translations_slug ON translations(slug, type);
         `);
     }
 
@@ -225,4 +241,91 @@ export function getTotalCommentCount(): number {
         .prepare("SELECT COUNT(*) as count FROM comments WHERE is_deleted = 0")
         .get() as { count: number };
     return result.count;
+}
+
+// ============================================
+// Translation 관련 함수
+// ============================================
+
+export interface Translation {
+    id: number;
+    slug: string;
+    type: string;
+    locale: string;
+    title: string;
+    description: string | null;
+    content: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export type Locale = "ko" | "en" | "ja" | "zh";
+
+// 번역 조회
+export function getTranslation(slug: string, type: string, locale: string): Translation | null {
+    const db = getDatabase();
+    return db
+        .prepare("SELECT * FROM translations WHERE slug = ? AND type = ? AND locale = ?")
+        .get(slug, type, locale) as Translation | null;
+}
+
+// 특정 글의 모든 번역 조회
+export function getAllTranslations(slug: string, type: string): Translation[] {
+    const db = getDatabase();
+    return db
+        .prepare("SELECT * FROM translations WHERE slug = ? AND type = ?")
+        .all(slug, type) as Translation[];
+}
+
+// 번역 추가/업데이트 (upsert)
+export function upsertTranslation(
+    slug: string,
+    type: string,
+    locale: string,
+    title: string,
+    description: string | null,
+    content: string
+): Translation {
+    const db = getDatabase();
+
+    // UPSERT (INSERT OR REPLACE)
+    db.prepare(`
+        INSERT INTO translations (slug, type, locale, title, description, content)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(slug, type, locale) DO UPDATE SET
+            title = excluded.title,
+            description = excluded.description,
+            content = excluded.content,
+            updated_at = datetime('now')
+    `).run(slug, type, locale, title, description, content);
+
+    return getTranslation(slug, type, locale)!;
+}
+
+// 번역 삭제
+export function deleteTranslation(slug: string, type: string, locale?: string): number {
+    const db = getDatabase();
+
+    if (locale) {
+        // 특정 언어만 삭제
+        const result = db
+            .prepare("DELETE FROM translations WHERE slug = ? AND type = ? AND locale = ?")
+            .run(slug, type, locale);
+        return result.changes;
+    } else {
+        // 모든 언어 삭제
+        const result = db
+            .prepare("DELETE FROM translations WHERE slug = ? AND type = ?")
+            .run(slug, type);
+        return result.changes;
+    }
+}
+
+// 사용 가능한 언어 목록 조회
+export function getAvailableLocales(slug: string, type: string): string[] {
+    const db = getDatabase();
+    const results = db
+        .prepare("SELECT DISTINCT locale FROM translations WHERE slug = ? AND type = ?")
+        .all(slug, type) as { locale: string }[];
+    return results.map(r => r.locale);
 }

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
+import { upsertTranslation } from "@/lib/db";
 
 /**
  * Admin Translation API
- * Gemini 3 Pro Preview를 사용하여 콘텐츠 번역
+ * Gemini를 사용하여 콘텐츠 번역 후 DB에 저장
  */
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
@@ -13,6 +14,8 @@ interface TranslateRequest {
     content: string;
     title: string;
     description?: string;
+    slug: string;
+    type: "post" | "writeup";
     targetLocales: ("en" | "ja" | "zh")[];
 }
 
@@ -38,11 +41,11 @@ export async function POST(request: NextRequest) {
 
     try {
         const body: TranslateRequest = await request.json();
-        const { content, title, description, targetLocales } = body;
+        const { content, title, description, slug, type, targetLocales } = body;
 
-        if (!content || !title || !targetLocales?.length) {
+        if (!content || !title || !slug || !type || !targetLocales?.length) {
             return NextResponse.json(
-                { error: "Missing required fields" },
+                { error: "Missing required fields: content, title, slug, type, targetLocales" },
                 { status: 400 }
             );
         }
@@ -85,7 +88,7 @@ Output format (JSON):
 }`;
 
             const response = await ai.models.generateContent({
-                model: "gemini-3-pro-preview",
+                model: "gemini-2.5-flash-preview-05-20",
                 contents: prompt,
             });
 
@@ -93,7 +96,6 @@ Output format (JSON):
 
             // JSON 파싱 시도
             try {
-                // JSON 블록 추출
                 const jsonMatch = responseText.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
                     const parsed = JSON.parse(jsonMatch[0]);
@@ -103,7 +105,6 @@ Output format (JSON):
                         content: parsed.content || content,
                     };
                 } else {
-                    // JSON 형식이 아니면 전체를 content로
                     translations[locale] = {
                         title: title,
                         description: description || "",
@@ -111,17 +112,27 @@ Output format (JSON):
                     };
                 }
             } catch {
-                // JSON 파싱 실패시 원문 그대로
                 translations[locale] = {
                     title: title,
                     description: description || "",
                     content: responseText,
                 };
             }
+
+            // DB에 저장
+            upsertTranslation(
+                slug,
+                type,
+                locale,
+                translations[locale].title,
+                translations[locale].description,
+                translations[locale].content
+            );
         }
 
         return NextResponse.json({
             success: true,
+            message: `Translated and saved to DB for locales: ${targetLocales.join(", ")}`,
             translations,
         });
     } catch (error) {
