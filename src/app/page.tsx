@@ -1,20 +1,26 @@
+import { cookies } from "next/headers";
+import { homeTranslations, type Locale } from "@/lib/translations";
+
 /**
  * Arang Tech Blog - Home Page
- * CTF/Security Research 블로그 메인 페이지
+ * CTF/Security Research 블로그 메인 페이지 (다국어 지원)
  */
-export default function HomePage() {
+export default async function HomePage() {
+    const cookieStore = await cookies();
+    const locale = (cookieStore.get("locale")?.value as Locale) || "ko";
+    const t = homeTranslations[locale] || homeTranslations.ko;
+
     return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">
             {/* Hero Section */}
             <div className="text-center space-y-4">
                 <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-                    Security Research
+                    {t.heroTitle1}
                     <br />
-                    <span className="text-primary">&</span> CTF Writeups
+                    <span className="text-primary">&</span> {t.heroTitle2}
                 </h1>
                 <p className="text-lg text-muted-foreground max-w-[600px] mx-auto">
-                    웹 보안, 리버스 엔지니어링, 포렌식 등 다양한 보안 연구와
-                    CTF 대회 문제 풀이를 공유합니다.
+                    {t.heroDescription}
                 </p>
             </div>
 
@@ -25,7 +31,7 @@ export default function HomePage() {
                     className="group px-6 py-3 bg-card border border-border rounded-lg hover:border-primary hover:bg-card/80 transition-all"
                 >
                     <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                        📝 블로그 포스트
+                        {t.blogPosts}
                     </span>
                 </a>
                 <a
@@ -33,7 +39,7 @@ export default function HomePage() {
                     className="group px-6 py-3 bg-card border border-border rounded-lg hover:border-primary hover:bg-card/80 transition-all"
                 >
                     <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                        🚩 CTF Writeups
+                        {t.ctfWriteups}
                     </span>
                 </a>
                 <a
@@ -41,17 +47,17 @@ export default function HomePage() {
                     className="group px-6 py-3 bg-card border border-border rounded-lg hover:border-primary hover:bg-card/80 transition-all"
                 >
                     <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                        🔐 About
+                        {t.about}
                     </span>
                 </a>
             </div>
 
             {/* Terminal-style footer */}
             <div className="mt-12 font-mono text-sm text-muted-foreground text-center">
-                <span className="text-primary">$</span> whoami
+                <span className="text-primary">$</span> {t.whoami}
                 <br />
                 <span className="text-muted-foreground/60">
-                    Security Researcher | CTF Player | Developer
+                    {t.role}
                 </span>
             </div>
         </div>

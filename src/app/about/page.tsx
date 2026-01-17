@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { aboutTranslations, type Locale } from "@/lib/translations";
 
 /**
  * About Page
- * 소개 페이지
+ * 소개 페이지 (다국어 지원)
  */
 
 export const metadata = {
@@ -10,51 +12,49 @@ export const metadata = {
     description: "Arang - Security Researcher & CTF Player",
 };
 
-export default function AboutPage() {
+export default async function AboutPage() {
+    const cookieStore = await cookies();
+    const locale = (cookieStore.get("locale")?.value as Locale) || "ko";
+    const t = aboutTranslations[locale] || aboutTranslations.ko;
+
     return (
         <div className="max-w-3xl mx-auto">
             <div className="space-y-8">
                 {/* Header */}
                 <div className="space-y-4">
                     <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                        About <span className="text-primary">Arang</span>
+                        {t.title} <span className="text-primary">Arang</span>
                     </h1>
                     <p className="text-lg text-muted-foreground">
-                        Security Researcher & CTF Player
+                        {t.subtitle}
                     </p>
                 </div>
 
                 {/* Bio */}
                 <div className="prose prose-zinc dark:prose-invert max-w-none">
-                    <p>
-                        안녕하세요! 보안 연구와 CTF에 열정을 가진 개발자입니다.
-                    </p>
+                    <p>{t.bio}</p>
 
-                    <h2>🔐 관심 분야</h2>
+                    <h2>{t.interests}</h2>
                     <ul>
-                        <li><strong>Web Security</strong> - XSS, CSRF, SQL Injection, SSRF 등</li>
-                        <li><strong>Reverse Engineering</strong> - Binary 분석, 악성코드 분석</li>
-                        <li><strong>Cryptography</strong> - 암호 알고리즘, 프로토콜 분석</li>
-                        <li><strong>Forensics</strong> - 메모리 포렌식, 네트워크 포렌식</li>
+                        {t.interestsList.map((item, i) => (
+                            <li key={i} dangerouslySetInnerHTML={{ __html: item.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                        ))}
                     </ul>
 
-                    <h2>🏆 CTF 참여</h2>
-                    <p>
-                        다양한 CTF 대회에 참여하며 실력을 키우고 있습니다.
-                        이 블로그에서 문제 풀이 과정과 배운 점을 공유합니다.
-                    </p>
+                    <h2>{t.ctfSection}</h2>
+                    <p>{t.ctfDescription}</p>
 
-                    <h2>🛠️ 기술 스택</h2>
+                    <h2>{t.techStack}</h2>
                     <ul>
-                        <li><strong>Languages</strong> - Python, TypeScript, Go, C/C++</li>
-                        <li><strong>Web</strong> - Next.js, React, Node.js</li>
-                        <li><strong>Tools</strong> - Burp Suite, IDA Pro, Ghidra, Wireshark</li>
+                        {t.techStackList.map((item, i) => (
+                            <li key={i} dangerouslySetInnerHTML={{ __html: item.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+                        ))}
                     </ul>
                 </div>
 
                 {/* Contact */}
                 <div className="border-t border-border pt-8">
-                    <h2 className="text-xl font-semibold mb-4">📬 Contact</h2>
+                    <h2 className="text-xl font-semibold mb-4">{t.contact}</h2>
                     <div className="flex flex-wrap gap-4">
                         <Link
                             href="https://github.com/JaewookYou"
@@ -72,9 +72,9 @@ export default function AboutPage() {
 
                 {/* Terminal Quote */}
                 <div className="font-mono text-sm text-muted-foreground bg-card border border-border rounded-lg p-4">
-                    <span className="text-primary">$</span> echo &quot;Happy Hacking!&quot; 🏴‍☠️
+                    <span className="text-primary">$</span> echo &quot;{t.terminalQuote}&quot;
                     <br />
-                    <span className="text-muted-foreground/60">Happy Hacking! 🏴‍☠️</span>
+                    <span className="text-muted-foreground/60">{t.terminalQuote}</span>
                 </div>
             </div>
         </div>
