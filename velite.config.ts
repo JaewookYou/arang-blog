@@ -62,7 +62,7 @@ export default defineConfig({
         clean: true,
     },
     collections: { posts, writeups },
-    mdx: {
+    markdown: {
         remarkPlugins: [remarkGfm],
         rehypePlugins: [
             [
