@@ -5,15 +5,22 @@ import { Octokit } from "octokit";
 /**
  * Admin Commit API
  * GitHub에 새 MDX 파일 커밋 (번역 파일 포함)
+ * 모든 파일을 하나의 커밋으로 푸시하여 Actions 중복 실행 방지
  */
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const REPO_OWNER = process.env.GITHUB_REPO_OWNER || "JaewookYou";
 const REPO_NAME = process.env.GITHUB_REPO_NAME || "arang-blog";
+const BRANCH = "main";
 
 interface TranslationContent {
     title: string;
     description: string;
+    content: string;
+}
+
+interface FileToCommit {
+    path: string;
     content: string;
 }
 
@@ -54,7 +61,6 @@ export async function POST(request: NextRequest) {
 
         // 파일 경로 결정
         const basePath = type === "writeup" ? "content/writeups" : "content/posts";
-        const filePath = `${basePath}/${slug}.mdx`;
 
         // Frontmatter 생성 함수
         const createFrontmatter = (
@@ -102,11 +108,11 @@ difficulty: "${difficulty || "medium"}"`;
         const sanitizeContent = (c: string) => c.replace(/<!--\s*([\s\S]*?)\s*-->/g, '{/* $1 */}');
 
         // 커밋할 파일 목록
-        const filesToCommit: { path: string; content: string }[] = [];
+        const filesToCommit: FileToCommit[] = [];
 
         // 1. 원본 파일 (한국어)
         const originalContent = createFrontmatter(title, description, "ko") + sanitizeContent(content);
-        filesToCommit.push({ path: filePath, content: originalContent });
+        filesToCommit.push({ path: `${basePath}/${slug}.mdx`, content: originalContent });
 
         // 2. 번역 파일들 (있는 경우)
         if (translations) {
@@ -115,7 +121,6 @@ difficulty: "${difficulty || "medium"}"`;
 
                 for (const [locale, trans] of Object.entries(translationsData)) {
                     if (trans && trans.content) {
-                        const translatedPath = `${basePath}/${slug}-${locale}.mdx`;
                         const translatedContent = createFrontmatter(
                             trans.title || title,
                             trans.description || description,
@@ -123,7 +128,10 @@ difficulty: "${difficulty || "medium"}"`;
                             slug
                         ) + sanitizeContent(trans.content);
 
-                        filesToCommit.push({ path: translatedPath, content: translatedContent });
+                        filesToCommit.push({
+                            path: `${basePath}/${slug}-${locale}.mdx`,
+                            content: translatedContent,
+                        });
                     }
                 }
             } catch {
@@ -131,44 +139,65 @@ difficulty: "${difficulty || "medium"}"`;
             }
         }
 
-        // 모든 파일 커밋
-        for (const file of filesToCommit) {
-            // 기존 파일 확인 (SHA 필요)
-            let sha: string | undefined;
-            try {
-                const { data: existingFile } = await octokit.rest.repos.getContent({
-                    owner: REPO_OWNER,
-                    repo: REPO_NAME,
-                    path: file.path,
-                });
-                if ("sha" in existingFile) {
-                    sha = existingFile.sha;
-                }
-            } catch {
-                // 파일이 없으면 OK (새로 생성)
-            }
+        // === 모든 파일을 하나의 커밋으로 푸시 ===
 
-            // 파일 생성/업데이트
-            const isTranslation = file.path !== filePath;
-            const commitMessage = sha
-                ? `📝 Update: ${title}${isTranslation ? ` (${file.path.split("-").pop()?.replace(".mdx", "")})` : ""}`
-                : `✨ New ${type}: ${title}${isTranslation ? ` (translated)` : ""}`;
+        // 1. 현재 브랜치의 최신 커밋 SHA 가져오기
+        const { data: refData } = await octokit.rest.git.getRef({
+            owner: REPO_OWNER,
+            repo: REPO_NAME,
+            ref: `heads/${BRANCH}`,
+        });
+        const latestCommitSha = refData.object.sha;
 
-            await octokit.rest.repos.createOrUpdateFileContents({
-                owner: REPO_OWNER,
-                repo: REPO_NAME,
-                path: file.path,
-                message: commitMessage,
-                content: Buffer.from(file.content).toString("base64"),
-                sha,
-                branch: "main",
-            });
-        }
+        // 2. 현재 커밋의 트리 SHA 가져오기
+        const { data: commitData } = await octokit.rest.git.getCommit({
+            owner: REPO_OWNER,
+            repo: REPO_NAME,
+            commit_sha: latestCommitSha,
+        });
+        const baseTreeSha = commitData.tree.sha;
+
+        // 3. 새 트리 생성 (모든 파일 포함)
+        const tree = filesToCommit.map((file) => ({
+            path: file.path,
+            mode: "100644" as const,
+            type: "blob" as const,
+            content: file.content,
+        }));
+
+        const { data: newTree } = await octokit.rest.git.createTree({
+            owner: REPO_OWNER,
+            repo: REPO_NAME,
+            base_tree: baseTreeSha,
+            tree,
+        });
+
+        // 4. 새 커밋 생성
+        const commitMessage = translations
+            ? `✨ New ${type}: ${title} (+ translations)`
+            : `✨ New ${type}: ${title}`;
+
+        const { data: newCommit } = await octokit.rest.git.createCommit({
+            owner: REPO_OWNER,
+            repo: REPO_NAME,
+            message: commitMessage,
+            tree: newTree.sha,
+            parents: [latestCommitSha],
+        });
+
+        // 5. 브랜치 레퍼런스 업데이트
+        await octokit.rest.git.updateRef({
+            owner: REPO_OWNER,
+            repo: REPO_NAME,
+            ref: `heads/${BRANCH}`,
+            sha: newCommit.sha,
+        });
 
         return NextResponse.json({
             success: true,
-            message: `Committed ${filesToCommit.length} file(s) successfully`,
-            files: filesToCommit.map(f => f.path),
+            message: `Committed ${filesToCommit.length} file(s) in single commit`,
+            files: filesToCommit.map((f) => f.path),
+            commitSha: newCommit.sha,
         });
     } catch (error) {
         console.error("Commit error:", error);

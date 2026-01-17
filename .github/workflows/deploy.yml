@@ -6,6 +6,11 @@ on:
       - main
   workflow_dispatch:
 
+# 동시 실행 방지 - Queue 방식으로 순차 실행
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -18,6 +23,7 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
+          command_timeout: 10m
           script: |
             # fnm 환경 로드
             export PATH="$HOME/.local/share/fnm:$PATH"
@@ -25,16 +31,38 @@ jobs:
             
             cd /home/arang/web/blog
             
-            # Git pull (SSH 사용)
-            git pull origin main
+            # 배포 락 체크 (동시 실행 방지 추가 보안)
+            LOCK_FILE="/tmp/arang-blog-deploy.lock"
+            if [ -f "$LOCK_FILE" ]; then
+              LOCK_AGE=$(($(date +%s) - $(stat -c %Y "$LOCK_FILE")))
+              if [ $LOCK_AGE -lt 300 ]; then
+                echo "⏳ 다른 배포가 진행 중입니다. 대기..."
+                sleep 30
+              else
+                echo "🔓 오래된 락 파일 제거"
+                rm -f "$LOCK_FILE"
+              fi
+            fi
+            touch "$LOCK_FILE"
+            
+            # 안전한 Git 동기화 (충돌 방지)
+            echo "📥 Fetching latest changes..."
+            git fetch origin main
+            git reset --hard origin/main
             
             # Install dependencies
+            echo "📦 Installing dependencies..."
             npm ci --legacy-peer-deps
             
             # Build
+            echo "🔨 Building..."
             npm run build
             
             # Reload PM2
+            echo "🔄 Reloading PM2..."
             pm2 reload arang-blog --update-env
+            
+            # 락 파일 제거
+            rm -f "$LOCK_FILE"
             
             echo "✅ Deployment completed at $(date)"
