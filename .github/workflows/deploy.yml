@@ -6,10 +6,10 @@ on:
       - main
   workflow_dispatch:
 
-# 동시 실행 방지 - Queue 방식으로 순차 실행
+# 동시 실행 방지 - 이전 빌드 취소하고 최신만 실행
 concurrency:
   group: deploy-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -23,60 +23,65 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           port: ${{ secrets.SSH_PORT }}
-          command_timeout: 15m
+          command_timeout: 20m
           script: |
-            set -e  # 에러 발생 시 중단
+            set -e
             
-            # fnm 환경 로드
+            # 환경 설정
             export PATH="$HOME/.local/share/fnm:$PATH"
             eval "$(fnm env)"
             
-            cd /home/arang/web/blog
+            DEPLOY_DIR="/home/arang/web/blog"
+            BUILD_DIR="/tmp/blog-build-$$"
             
-            # 배포 락 체크 (동시 실행 방지)
-            LOCK_FILE="/tmp/arang-blog-deploy.lock"
-            if [ -f "$LOCK_FILE" ]; then
-              LOCK_AGE=$(($(date +%s) - $(stat -c %Y "$LOCK_FILE")))
-              if [ $LOCK_AGE -lt 600 ]; then
-                echo "⏳ 다른 배포가 진행 중입니다. 대기 (60초)..."
-                sleep 60
-              fi
-              echo "🔓 락 파일 제거 후 진행"
-              rm -f "$LOCK_FILE"
-            fi
-            touch "$LOCK_FILE"
+            echo "🚀 Starting deployment..."
+            echo "📂 Build directory: $BUILD_DIR"
             
-            # PM2 중지 (빌드 중 서버 접근 방지)
-            echo "⏸️ Stopping server..."
-            pm2 stop arang-blog || true
+            # 이전 빌드 디렉토리 정리
+            rm -rf /tmp/blog-build-*
             
-            # 안전한 Git 동기화
-            echo "📥 Fetching latest changes..."
-            git fetch origin main
-            git reset --hard origin/main
+            # 1. 임시 빌드 디렉토리에 클론
+            echo "📥 Cloning repository..."
+            git clone --depth 1 --branch main git@github.com:JaewookYou/arang-blog.git "$BUILD_DIR"
+            cd "$BUILD_DIR"
             
-            # 클린 설치
+            # 2. 환경파일 복사
+            echo "📋 Copying environment files..."
+            cp "$DEPLOY_DIR/.env.local" . 2>/dev/null || true
+            cp "$DEPLOY_DIR/data" . -r 2>/dev/null || true
+            
+            # 3. 의존성 설치 및 빌드
             echo "📦 Installing dependencies..."
-            rm -rf node_modules/.cache
             npm ci --legacy-peer-deps
             npm rebuild better-sqlite3
             
-            # 빌드
             echo "🔨 Building..."
             npm run build
             
-            # 빌드 완료 확인
+            # 4. 빌드 검증
             if [ ! -f ".next/prerender-manifest.json" ]; then
-              echo "❌ Build failed - prerender-manifest.json not found"
-              rm -f "$LOCK_FILE"
+              echo "❌ Build verification failed!"
+              rm -rf "$BUILD_DIR"
               exit 1
             fi
             
-            # PM2 시작
-            echo "🔄 Starting server..."
-            pm2 start arang-blog --update-env || pm2 restart arang-blog --update-env
+            echo "✅ Build successful!"
             
-            # 락 파일 제거
-            rm -f "$LOCK_FILE"
+            # 5. 원자적 배포 (rsync로 덮어쓰기)
+            echo "📤 Deploying to production..."
+            rsync -a --delete --exclude='.env.local' --exclude='data' .next/ "$DEPLOY_DIR/.next/"
+            rsync -a --delete node_modules/ "$DEPLOY_DIR/node_modules/"
+            
+            # 소스 코드 동기화
+            cd "$DEPLOY_DIR"
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # 6. PM2 reload (graceful restart - 다운타임 없음)
+            echo "🔄 Reloading PM2..."
+            pm2 reload arang-blog --update-env || pm2 start arang-blog --update-env
+            
+            # 7. 정리
+            rm -rf "$BUILD_DIR"
             
             echo "✅ Deployment completed at $(date)"
