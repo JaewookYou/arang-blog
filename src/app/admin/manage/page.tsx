@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { FileText, Flag, Edit, ArrowLeft, Loader2 } from "lucide-react";
+import { FileText, Flag, Edit, ArrowLeft, Loader2, Trash2 } from "lucide-react";
 
 /**
  * Admin Manage Page
- * 기존 글 목록 및 수정 링크
+ * 기존 글 목록, 수정 및 삭제
  */
 
 interface FileItem {
@@ -21,30 +21,63 @@ export default function ManagePage() {
     const [posts, setPosts] = useState<FileItem[]>([]);
     const [writeups, setWriteups] = useState<FileItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [deletingSlug, setDeletingSlug] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<"posts" | "writeups">("posts");
 
     useEffect(() => {
-        const loadFiles = async () => {
-            try {
-                const [postsRes, writeupsRes] = await Promise.all([
-                    fetch("/api/admin/posts?type=posts"),
-                    fetch("/api/admin/posts?type=writeups"),
-                ]);
-
-                const postsData = await postsRes.json();
-                const writeupsData = await writeupsRes.json();
-
-                if (postsRes.ok) setPosts(postsData.files || []);
-                if (writeupsRes.ok) setWriteups(writeupsData.files || []);
-            } catch {
-                console.error("Failed to load files");
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         loadFiles();
     }, []);
+
+    const loadFiles = async () => {
+        try {
+            const [postsRes, writeupsRes] = await Promise.all([
+                fetch("/api/admin/posts?type=posts"),
+                fetch("/api/admin/posts?type=writeups"),
+            ]);
+
+            const postsData = await postsRes.json();
+            const writeupsData = await writeupsRes.json();
+
+            if (postsRes.ok) setPosts(postsData.files || []);
+            if (writeupsRes.ok) setWriteups(writeupsData.files || []);
+        } catch {
+            console.error("Failed to load files");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleDelete = async (slug: string) => {
+        if (!confirm(`정말 "${slug}"를 삭제하시겠습니까?\n번역 파일도 함께 삭제됩니다.`)) {
+            return;
+        }
+
+        setDeletingSlug(slug);
+
+        try {
+            const type = activeTab === "posts" ? "post" : "writeup";
+            const res = await fetch(`/api/admin/delete?slug=${slug}&type=${type}`, {
+                method: "DELETE",
+            });
+
+            if (res.ok) {
+                alert("✅ 삭제되었습니다.");
+                // 목록에서 제거
+                if (activeTab === "posts") {
+                    setPosts(posts.filter((p) => p.slug !== slug));
+                } else {
+                    setWriteups(writeups.filter((w) => w.slug !== slug));
+                }
+            } else {
+                const data = await res.json();
+                alert(`❌ 삭제 실패: ${data.error}`);
+            }
+        } catch {
+            alert("❌ 네트워크 오류");
+        } finally {
+            setDeletingSlug(null);
+        }
+    };
 
     const currentFiles = activeTab === "posts" ? posts : writeups;
 
@@ -97,13 +130,27 @@ export default function ManagePage() {
                                     <td className="p-3">
                                         <span className="font-mono">{file.name}</span>
                                     </td>
-                                    <td className="p-3 text-right">
+                                    <td className="p-3 text-right space-x-2">
                                         <Link href={`/admin/edit/${file.slug}?type=${activeTab}`}>
                                             <Button variant="ghost" size="sm">
                                                 <Edit className="h-4 w-4 mr-1" />
                                                 수정
                                             </Button>
                                         </Link>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => handleDelete(file.slug)}
+                                            disabled={deletingSlug === file.slug}
+                                            className="text-destructive hover:text-destructive"
+                                        >
+                                            {deletingSlug === file.slug ? (
+                                                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                            ) : (
+                                                <Trash2 className="h-4 w-4 mr-1" />
+                                            )}
+                                            삭제
+                                        </Button>
                                     </td>
                                 </tr>
                             ))}
