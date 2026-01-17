@@ -168,13 +168,7 @@ export default async function PostPage({ params }: PostPageProps) {
 
                 {/* Content */}
                 <div className="prose prose-zinc dark:prose-invert max-w-none">
-                    {isTranslated ? (
-                        // 번역된 마크다운 (DB에서 가져온 문자열)
-                        <div dangerouslySetInnerHTML={{ __html: displayContent }} />
-                    ) : (
-                        // 원본 MDX
-                        <MDXContent code={displayContent} />
-                    )}
+                    <div dangerouslySetInnerHTML={{ __html: displayContent }} />
                 </div>
 
                 {/* Navigation */}

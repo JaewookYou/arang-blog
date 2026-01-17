@@ -199,11 +199,7 @@ export default async function WriteupPage({ params }: WriteupPageProps) {
 
                 {/* Content */}
                 <div className="prose prose-zinc dark:prose-invert max-w-none">
-                    {isTranslated ? (
-                        <div dangerouslySetInnerHTML={{ __html: displayContent }} />
-                    ) : (
-                        <MDXContent code={displayContent} />
-                    )}
+                    <div dangerouslySetInnerHTML={{ __html: displayContent }} />
                 </div>
 
                 {/* Comments */}
