@@ -1,14 +1,15 @@
 import { cookies } from "next/headers";
-import { homeTranslations, type Locale } from "@/lib/translations";
+import { getHomeTranslation, type Locale } from "@/lib/translations";
 
 /**
  * Arang Tech Blog - Home Page
  * CTF/Security Research 블로그 메인 페이지 (다국어 지원)
+ * DB 저장된 콘텐츠 우선, fallback은 하드코딩 데이터
  */
 export default async function HomePage() {
     const cookieStore = await cookies();
     const locale = (cookieStore.get("locale")?.value as Locale) || "ko";
-    const t = homeTranslations[locale] || homeTranslations.ko;
+    const t = getHomeTranslation(locale);
 
     return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">

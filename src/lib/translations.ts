@@ -372,3 +372,36 @@ export const profileTranslations: Record<Locale, {
         contact: "📬 联系方式",
     },
 };
+
+// ============ DB에서 정적 페이지 콘텐츠 가져오기 ============
+import { getStaticPageContent } from "./db";
+
+/**
+ * 정적 페이지 번역 데이터 조회 (DB 우선, fallback은 하드코딩)
+ * @param pageKey - "home" | "about"
+ * @param locale - "ko" | "en" | "ja" | "zh"
+ * @returns 번역 데이터 객체
+ */
+export function getHomeTranslation(locale: Locale): typeof homeTranslations.ko {
+    try {
+        const dbContent = getStaticPageContent("home", locale);
+        if (dbContent) {
+            return JSON.parse(dbContent.content);
+        }
+    } catch (error) {
+        console.warn("Failed to get home translation from DB:", error);
+    }
+    return homeTranslations[locale] || homeTranslations.ko;
+}
+
+export function getProfileTranslation(locale: Locale): typeof profileTranslations.ko {
+    try {
+        const dbContent = getStaticPageContent("about", locale);
+        if (dbContent) {
+            return JSON.parse(dbContent.content);
+        }
+    } catch (error) {
+        console.warn("Failed to get about translation from DB:", error);
+    }
+    return profileTranslations[locale] || profileTranslations.ko;
+}

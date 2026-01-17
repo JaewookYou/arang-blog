@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { profileTranslations, type Locale } from "@/lib/translations";
+import { getProfileTranslation, type Locale } from "@/lib/translations";
 
 /**
  * About Page
  * 소개 페이지 (다국어 지원)
+ * DB 저장된 콘텐츠 우선, fallback은 하드코딩 데이터
  */
 
 export const metadata = {
@@ -15,7 +16,7 @@ export const metadata = {
 export default async function AboutPage() {
     const cookieStore = await cookies();
     const locale = (cookieStore.get("locale")?.value as Locale) || "ko";
-    const t = profileTranslations[locale] || profileTranslations.ko;
+    const t = getProfileTranslation(locale);
 
     return (
         <div className="max-w-3xl mx-auto">
