@@ -33,14 +33,31 @@ export const metadata: Metadata = {
     keywords: ["CTF", "Security", "Writeup", "Hacking", "Cybersecurity"],
     authors: [{ name: "Arang" }],
     creator: "Arang",
+    icons: {
+        icon: "/favicon.svg",
+        apple: "/apple-touch-icon.svg",
+    },
     openGraph: {
         type: "website",
         locale: "ko_KR",
         siteName: "Arang.dev",
+        title: "Arang | Security Research & CTF",
+        description: "CTF Writeups, Security Research, and Tech Articles",
+        images: [
+            {
+                url: "/api/og?title=Arang&type=home&description=Security Research & CTF Writeups",
+                width: 1200,
+                height: 630,
+                alt: "Arang - Security Research & CTF",
+            },
+        ],
     },
     twitter: {
         card: "summary_large_image",
         creator: "@Arang",
+        title: "Arang | Security Research & CTF",
+        description: "CTF Writeups, Security Research, and Tech Articles",
+        images: ["/api/og?title=Arang&type=home&description=Security Research & CTF Writeups"],
     },
     // Security-First: 기본 robots 설정
     robots: {
