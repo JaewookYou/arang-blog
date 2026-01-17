@@ -23,7 +23,8 @@ export async function generateStaticParams() {
 
 // 동적 메타데이터
 export async function generateMetadata({ params }: PostPageProps) {
-    const { slug } = await params;
+    const { slug: rawSlug } = await params;
+    const slug = decodeURIComponent(rawSlug);
     const post = posts.find((p) => p.slug === slug);
 
     if (!post) {
@@ -60,7 +61,9 @@ export async function generateMetadata({ params }: PostPageProps) {
 }
 
 export default async function PostPage({ params }: PostPageProps) {
-    const { slug } = await params;
+    const { slug: rawSlug } = await params;
+    // URL 인코딩된 한글 slug 디코딩
+    const slug = decodeURIComponent(rawSlug);
 
     // 날짜순 정렬된 포스트 목록
     const sortedPosts = posts

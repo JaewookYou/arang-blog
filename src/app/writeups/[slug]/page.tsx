@@ -40,7 +40,8 @@ export async function generateStaticParams() {
 
 // 동적 메타데이터
 export async function generateMetadata({ params }: WriteupPageProps) {
-    const { slug } = await params;
+    const { slug: rawSlug } = await params;
+    const slug = decodeURIComponent(rawSlug);
     const writeup = writeups.find((w) => w.slug === slug);
 
     if (!writeup) {
@@ -78,7 +79,8 @@ export async function generateMetadata({ params }: WriteupPageProps) {
 }
 
 export default async function WriteupPage({ params }: WriteupPageProps) {
-    const { slug } = await params;
+    const { slug: rawSlug } = await params;
+    const slug = decodeURIComponent(rawSlug);
     const writeup = writeups.find((w) => w.slug === slug);
 
     if (!writeup || !writeup.published) {
