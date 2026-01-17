@@ -36,10 +36,41 @@ export function ContentRenderer({ content, className }: ContentRendererProps) {
             wrapper.className = "code-block-wrapper";
             pre.parentNode?.insertBefore(wrapper, pre);
 
-            // pre 속성 추출
-            const language = pre.getAttribute("data-language") ||
-                pre.querySelector("code")?.getAttribute("data-language") ||
-                pre.className.match(/language-(\w+)/)?.[1] || "";
+            // pre 속성에서 언어 추출 (다양한 위치에서 시도)
+            let language = pre.getAttribute("data-language") || "";
+
+            // code 태그에서 시도
+            if (!language) {
+                const code = pre.querySelector("code");
+                language = code?.getAttribute("data-language") || "";
+            }
+
+            // pre 클래스에서 시도 (language-*)
+            if (!language) {
+                const match = pre.className.match(/language-(\w+)/);
+                language = match ? match[1] : "";
+            }
+
+            // code 클래스에서 시도
+            if (!language) {
+                const code = pre.querySelector("code");
+                const match = code?.className.match(/language-(\w+)/);
+                language = match ? match[1] : "";
+            }
+
+            // parent figure에서 data-language 시도 (rehype-pretty-code 구조)
+            if (!language) {
+                const figure = pre.closest("figure");
+                language = figure?.getAttribute("data-language") || "";
+            }
+
+            // figcaption에서 텍스트 추출 (일부 테마에서 사용)
+            if (!language) {
+                const figure = pre.closest("figure");
+                const caption = figure?.querySelector("figcaption");
+                language = caption?.getAttribute("data-language") || caption?.textContent?.trim() || "";
+            }
+
             const codeContent = pre.innerHTML;
 
             // React root 생성 및 CodeBlock 렌더링
