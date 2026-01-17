@@ -71,15 +71,17 @@ export function ContentRenderer({ content, className }: ContentRendererProps) {
                 language = caption?.getAttribute("data-language") || caption?.textContent?.trim() || "";
             }
 
+            // pre의 내부 HTML 가져오기 (code 태그 포함)
             const codeContent = pre.innerHTML;
 
             // React root 생성 및 CodeBlock 렌더링
             const root = createRoot(wrapper);
             rootsRef.current.set(wrapper, root);
 
+            // pre.innerHTML에 이미 code 태그가 포함되어 있으므로 그대로 사용
             root.render(
                 <CodeBlock data-language={language}>
-                    <code dangerouslySetInnerHTML={{ __html: codeContent }} />
+                    <span dangerouslySetInnerHTML={{ __html: codeContent }} />
                 </CodeBlock>
             );
 
