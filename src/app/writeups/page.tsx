@@ -1,17 +1,20 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { writeups } from "@/.velite";
 import { formatDate } from "@/lib/utils";
 import { TagFilter } from "@/components/tag-filter";
+import { writeupsPageTranslations, type Locale } from "@/lib/translations";
+import { getTranslation } from "@/lib/db";
 
 /**
  * Writeups List Page
- * CTF Writeup 목록 페이지 (태그 필터링 지원)
+ * CTF Writeup 목록 페이지 (다국어 지원)
  */
 
 export const metadata = {
     title: "CTF Writeups",
-    description: "CTF 대회 문제 풀이 모음",
+    description: "CTF challenge writeups",
 };
 
 // 카테고리 아이콘 매핑
@@ -39,9 +42,14 @@ interface WriteupsPageProps {
 export default async function WriteupsPage({ searchParams }: WriteupsPageProps) {
     const { tag, category } = await searchParams;
 
-    // 발행된 writeup만 필터링하고 날짜순 정렬
+    // 쿠키에서 현재 언어
+    const cookieStore = await cookies();
+    const locale = (cookieStore.get("locale")?.value as Locale) || "ko";
+    const t = writeupsPageTranslations[locale] || writeupsPageTranslations.ko;
+
+    // 발행된 writeup만 필터링 (번역 파일 제외)
     const publishedWriteups = writeups
-        .filter((writeup) => writeup.published)
+        .filter((w) => w.published && !w.slug.endsWith("-en") && !w.slug.endsWith("-ja") && !w.slug.endsWith("-zh"))
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     // 태그/카테고리 필터링
@@ -59,17 +67,36 @@ export default async function WriteupsPage({ searchParams }: WriteupsPageProps) 
     // 카테고리 목록
     const categories = [...new Set(publishedWriteups.map((w) => w.category))].sort();
 
+    // 번역된 제목/설명 가져오기
+    const writeupsWithTranslations = filteredWriteups.map((writeup) => {
+        if (locale !== "ko") {
+            const translation = getTranslation(writeup.slug, "writeup", locale);
+            if (translation) {
+                return {
+                    ...writeup,
+                    displayTitle: translation.title,
+                    displayDescription: translation.description || writeup.description,
+                };
+            }
+        }
+        return {
+            ...writeup,
+            displayTitle: writeup.title,
+            displayDescription: writeup.description,
+        };
+    });
+
     return (
         <div className="max-w-3xl mx-auto">
             <div className="space-y-2 mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">🚩 CTF Writeups</h1>
+                <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
                 <p className="text-muted-foreground">
-                    CTF 대회 문제 풀이 모음
+                    {t.description}
                     {tag && (
-                        <span className="ml-2 text-primary">#{tag} 필터링 중</span>
+                        <span className="ml-2 text-primary">#{tag} {t.tagFiltering}</span>
                     )}
                     {category && (
-                        <span className="ml-2 text-primary">{categoryIcons[category]} {category} 필터링 중</span>
+                        <span className="ml-2 text-primary">{categoryIcons[category]} {category} {t.categoryFiltering}</span>
                     )}
                 </p>
             </div>
@@ -79,8 +106,8 @@ export default async function WriteupsPage({ searchParams }: WriteupsPageProps) 
                 <Link
                     href="/writeups"
                     className={`px-3 py-1 text-sm rounded-full transition-colors ${!category
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground hover:bg-accent"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-accent"
                         }`}
                 >
                     All
@@ -90,8 +117,8 @@ export default async function WriteupsPage({ searchParams }: WriteupsPageProps) 
                         key={cat}
                         href={`/writeups?category=${cat}`}
                         className={`px-3 py-1 text-sm rounded-full transition-colors ${category === cat
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted text-muted-foreground hover:bg-accent"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted text-muted-foreground hover:bg-accent"
                             }`}
                     >
                         {categoryIcons[cat]} {cat.toUpperCase()}
@@ -104,23 +131,23 @@ export default async function WriteupsPage({ searchParams }: WriteupsPageProps) 
                 <TagFilter tags={allTags} basePath="/writeups" />
             </Suspense>
 
-            {filteredWriteups.length === 0 ? (
+            {writeupsWithTranslations.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                     <p>
                         {tag || category
-                            ? "해당 조건의 Writeup이 없습니다."
-                            : "아직 작성된 Writeup이 없습니다."}
+                            ? t.noWriteupsFiltered
+                            : t.noWriteups}
                     </p>
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {filteredWriteups.map((writeup) => (
+                    {writeupsWithTranslations.map((writeup) => (
                         <article
                             key={writeup.slug}
                             className="group relative rounded-lg border border-border bg-card p-6 hover:border-primary/50 transition-colors"
                         >
                             <Link href={`/writeups/${writeup.slug}`} className="absolute inset-0">
-                                <span className="sr-only">{writeup.title}</span>
+                                <span className="sr-only">{writeup.displayTitle}</span>
                             </Link>
 
                             <div className="space-y-3">
@@ -130,8 +157,8 @@ export default async function WriteupsPage({ searchParams }: WriteupsPageProps) 
                                         {writeup.ctf}
                                     </span>
                                     <span className={`px-2 py-0.5 rounded-full ${category === writeup.category
-                                            ? "bg-primary text-primary-foreground"
-                                            : "bg-muted"
+                                        ? "bg-primary text-primary-foreground"
+                                        : "bg-muted"
                                         }`}>
                                         {categoryIcons[writeup.category]} {writeup.category.toUpperCase()}
                                     </span>
@@ -143,12 +170,12 @@ export default async function WriteupsPage({ searchParams }: WriteupsPageProps) 
                                 </div>
 
                                 <h2 className="text-xl font-semibold group-hover:text-primary transition-colors">
-                                    {writeup.title}
+                                    {writeup.displayTitle}
                                 </h2>
 
-                                {writeup.description && (
+                                {writeup.displayDescription && (
                                     <p className="text-muted-foreground line-clamp-2">
-                                        {writeup.description}
+                                        {writeup.displayDescription}
                                     </p>
                                 )}
 

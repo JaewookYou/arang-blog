@@ -159,3 +159,83 @@ export const aboutTranslations: Record<Locale, {
         terminalQuote: "Happy Hacking! 🏴‍☠️",
     },
 };
+
+export const postsPageTranslations: Record<Locale, {
+    title: string;
+    description: string;
+    tagFiltering: string;
+    noPostsWithTag: string;
+    noPosts: string;
+}> = {
+    ko: {
+        title: "📝 Posts",
+        description: "기술 블로그 포스트 모음",
+        tagFiltering: "태그 필터링 중",
+        noPostsWithTag: "태그를 가진 포스트가 없습니다.",
+        noPosts: "아직 작성된 포스트가 없습니다.",
+    },
+    en: {
+        title: "📝 Posts",
+        description: "Tech blog post collection",
+        tagFiltering: "filtering by tag",
+        noPostsWithTag: "No posts with this tag.",
+        noPosts: "No posts yet.",
+    },
+    ja: {
+        title: "📝 Posts",
+        description: "技術ブログ記事一覧",
+        tagFiltering: "タグでフィルタリング中",
+        noPostsWithTag: "このタグの記事はありません。",
+        noPosts: "まだ記事がありません。",
+    },
+    zh: {
+        title: "📝 Posts",
+        description: "技术博客文章集",
+        tagFiltering: "按标签筛选",
+        noPostsWithTag: "没有该标签的文章。",
+        noPosts: "暂无文章。",
+    },
+};
+
+export const writeupsPageTranslations: Record<Locale, {
+    title: string;
+    description: string;
+    tagFiltering: string;
+    categoryFiltering: string;
+    noWriteups: string;
+    noWriteupsFiltered: string;
+}> = {
+    ko: {
+        title: "🚩 CTF Writeups",
+        description: "CTF 대회 문제 풀이 모음",
+        tagFiltering: "필터링 중",
+        categoryFiltering: "필터링 중",
+        noWriteups: "아직 작성된 Writeup이 없습니다.",
+        noWriteupsFiltered: "해당 조건의 Writeup이 없습니다.",
+    },
+    en: {
+        title: "🚩 CTF Writeups",
+        description: "CTF challenge writeup collection",
+        tagFiltering: "filtering",
+        categoryFiltering: "filtering",
+        noWriteups: "No writeups yet.",
+        noWriteupsFiltered: "No writeups match the filter.",
+    },
+    ja: {
+        title: "🚩 CTF Writeups",
+        description: "CTF大会問題解説集",
+        tagFiltering: "フィルタリング中",
+        categoryFiltering: "フィルタリング中",
+        noWriteups: "まだWriteupがありません。",
+        noWriteupsFiltered: "条件に合うWriteupがありません。",
+    },
+    zh: {
+        title: "🚩 CTF Writeups",
+        description: "CTF比赛题解集",
+        tagFiltering: "筛选中",
+        categoryFiltering: "筛选中",
+        noWriteups: "暂无Writeup。",
+        noWriteupsFiltered: "没有符合条件的Writeup。",
+    },
+};
+
