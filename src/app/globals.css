@@ -113,7 +113,15 @@ code {
 
 /* 인라인 코드 */
 :not(pre)>code {
-  @apply bg-muted px-1.5 py-0.5 rounded text-primary font-mono;
+  @apply bg-muted px-1.5 py-0.5 rounded font-mono text-sm;
+  color: #db2777;
+  /* pink-600 - 라이트모드용 붉은빛 */
+}
+
+.dark :not(pre)>code {
+  @apply bg-zinc-800;
+  color: #f472b6;
+  /* pink-400 - 다크모드용 밝은 붉은빛 */
 }
 
 /* 코드 블록 라인 */

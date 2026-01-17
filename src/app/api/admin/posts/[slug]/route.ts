@@ -31,15 +31,29 @@ export async function GET(
     try {
         const octokit = new Octokit({ auth: GITHUB_TOKEN });
 
-        const path = type === "writeups"
-            ? `content/writeups/${slug}.mdx`
-            : `content/posts/${slug}.mdx`;
+        const baseDir = type === "writeups" ? "content/writeups" : "content/posts";
 
-        const { data } = await octokit.rest.repos.getContent({
-            owner: REPO_OWNER,
-            repo: REPO_NAME,
-            path,
-        });
+        // .md 먼저 시도, 없으면 .mdx 시도
+        let path = `${baseDir}/${slug}.md`;
+        let data;
+
+        try {
+            const response = await octokit.rest.repos.getContent({
+                owner: REPO_OWNER,
+                repo: REPO_NAME,
+                path,
+            });
+            data = response.data;
+        } catch {
+            // .md 없으면 .mdx 시도
+            path = `${baseDir}/${slug}.mdx`;
+            const response = await octokit.rest.repos.getContent({
+                owner: REPO_OWNER,
+                repo: REPO_NAME,
+                path,
+            });
+            data = response.data;
+        }
 
         if (Array.isArray(data) || !("content" in data)) {
             return NextResponse.json({ error: "Not a file" }, { status: 400 });
