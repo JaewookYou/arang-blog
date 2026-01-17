@@ -64,8 +64,8 @@ export default async function WriteupsPage({ searchParams }: WriteupsPageProps) 
     // 모든 태그 수집
     const allTags = publishedWriteups.flatMap((writeup) => writeup.tags);
 
-    // 카테고리 목록
-    const categories = [...new Set(publishedWriteups.map((w) => w.category))].sort();
+    // 카테고리 목록 (undefined 필터링)
+    const categories = [...new Set(publishedWriteups.map((w) => w.category).filter(Boolean))].sort() as string[];
 
     // 번역된 제목/설명 가져오기
     const writeupsWithTranslations = filteredWriteups.map((writeup) => {
@@ -156,12 +156,14 @@ export default async function WriteupsPage({ searchParams }: WriteupsPageProps) 
                                     <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
                                         {writeup.ctf}
                                     </span>
-                                    <span className={`px-2 py-0.5 rounded-full ${category === writeup.category
-                                        ? "bg-primary text-primary-foreground"
-                                        : "bg-muted"
-                                        }`}>
-                                        {categoryIcons[writeup.category]} {writeup.category.toUpperCase()}
-                                    </span>
+                                    {writeup.category && (
+                                        <span className={`px-2 py-0.5 rounded-full ${category === writeup.category
+                                            ? "bg-primary text-primary-foreground"
+                                            : "bg-muted"
+                                            }`}>
+                                            {categoryIcons[writeup.category]} {writeup.category.toUpperCase()}
+                                        </span>
+                                    )}
                                     {writeup.difficulty && (
                                         <span className={`font-medium ${difficultyColors[writeup.difficulty]}`}>
                                             {writeup.difficulty}

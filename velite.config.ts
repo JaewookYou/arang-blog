@@ -26,28 +26,29 @@ const baseFields = {
 // 블로그 포스트 컬렉션
 const posts = defineCollection({
     name: "Post",
-    pattern: "posts/**/*.mdx",
+    pattern: "posts/**/*.{mdx,md}",
     schema: s.object({
         ...baseFields,
         slug: s.path().transform((path) => path.split("/").pop() || path),
         cover: s.image().optional(),
-        body: s.mdx(),
+        category: s.string().optional(),
+        body: s.markdown(),
     }),
 });
 
 // CTF Writeup 컬렉션
 const writeups = defineCollection({
     name: "Writeup",
-    pattern: "writeups/**/*.mdx",
+    pattern: "writeups/**/*.{mdx,md}",
     schema: s.object({
         ...baseFields,
         slug: s.path().transform((path) => path.split("/").pop() || path),
-        ctf: s.string(),
-        category: s.enum(["web", "pwn", "rev", "crypto", "forensics", "misc"]),
+        ctf: s.string().optional(),
+        category: s.enum(["web", "pwn", "rev", "crypto", "forensics", "misc"]).optional(),
         difficulty: s.enum(["easy", "medium", "hard", "insane"]).optional(),
         points: s.number().optional(),
         solves: s.number().optional(),
-        body: s.mdx(),
+        body: s.markdown(),
     }),
 });
 

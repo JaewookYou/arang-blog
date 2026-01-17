@@ -142,7 +142,7 @@ export default async function WriteupPage({ params }: WriteupPageProps) {
                             {writeup.ctf}
                         </span>
                         <span className="px-3 py-1 bg-muted rounded-full">
-                            {categoryIcons[writeup.category]} {writeup.category.toUpperCase()}
+                            {writeup.category ? `${categoryIcons[writeup.category]} ${writeup.category.toUpperCase()}` : '🏁 CTF'}
                         </span>
                         {writeup.difficulty && (
                             <span className={`px-3 py-1 bg-muted rounded-full font-medium ${difficultyColors[writeup.difficulty]}`}>
