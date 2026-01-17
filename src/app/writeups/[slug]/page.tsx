@@ -115,9 +115,13 @@ export default async function WriteupPage({ params }: WriteupPageProps) {
     if (currentLocale !== "ko") {
         const translation = getTranslation(slug, "writeup", currentLocale);
         if (translation) {
+            // 동적 import로 marked 사용 (서버 컴포넌트에서)
+            const { marked } = await import("marked");
+            marked.setOptions({ gfm: true, breaks: true });
+
             displayTitle = translation.title;
             displayDescription = translation.description || writeup.description;
-            displayContent = translation.content;
+            displayContent = marked.parse(translation.content) as string;
             isTranslated = true;
         }
     }
