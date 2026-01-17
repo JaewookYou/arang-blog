@@ -116,6 +116,8 @@ code {
   @apply bg-muted px-1.5 py-0.5 rounded font-mono text-sm;
   color: #db2777;
   /* pink-600 - 라이트모드용 붉은빛 */
+  word-break: break-all;
+  /* 긴 코드 줄바꿈 */
 }
 
 .dark :not(pre)>code {

@@ -107,13 +107,12 @@ export default async function PostPage({ params }: PostPageProps) {
     if (currentLocale !== "ko") {
         const translation = getTranslation(slug, "post", currentLocale);
         if (translation) {
-            // 동적 import로 marked 사용 (서버 컴포넌트에서)
-            const { marked } = await import("marked");
-            marked.setOptions({ gfm: true, breaks: true });
+            // Velite와 동일한 렌더링 파이프라인 사용
+            const { markdownToHtml } = await import("@/lib/markdown");
 
             displayTitle = translation.title;
             displayDescription = translation.description || post.description;
-            displayContent = marked.parse(translation.content) as string;
+            displayContent = await markdownToHtml(translation.content);
             isTranslated = true;
         }
     }
