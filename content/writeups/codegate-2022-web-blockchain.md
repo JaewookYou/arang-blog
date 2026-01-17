@@ -37,7 +37,7 @@ nft 문제는 팀원인 epist가 도와줬다(ㄳㄳ)
 대충 코드 보면class파일 내의lookupImg 함수에서 memo의 내용 중 [] 대괄호 안에 들어가는걸 url로 받아 image를 파싱해서 img tag에 넣어준다.
 
 
-```
+```py
 pattern = Pattern.compile("^[a-z]+:");
  matcher = pattern.matcher(tmp);
  if (!matcher.find() || matcher.group().startsWith("file"))
@@ -76,7 +76,7 @@ memo=[url:file:///flag] 해주면 풀린다
 ### 요약 : xss bot에 admin password가 존재한다(언인텐), parse_url 버그(?)를 이용한다(인텐)
 
 
-```
+```php
 case 'iframe':
  $src = $element->src;
  $host = parse_url($src)['host'];
@@ -96,7 +96,7 @@ parse_url($src)['host']로 host 검사를 하는데, 이는 쉽게 우회가 가
 찾기 귀찮으니 따로 링크는 올리지 않겠다.
 
 
-```
+```py
 # xss bot python code
 
 driver.get('http://3.39.55.38:1929/login')
@@ -156,7 +156,7 @@ Content-Type: text/plain; charset=utf-8
 host localhost로 검사하고있지만 걍 직접 nc로 붙어서 host 바꿔주니 뚝 떨어졌다.
 
 
-```
+```go
 func (this *AdminController) AuthKey() {
  encrypted_auth_key, _ := AesEncrypt([]byte(auth_key), []byte(auth_crypt_key))
  this.Ctx.WriteString(hex.EncodeToString(encrypted_auth_key))
@@ -167,7 +167,7 @@ func (this *AdminController) AuthKey() {
 대충 코드 보면 위에서 암호화할때 쓰이는 auth_crypt_key가 선언만 되어있고 값을 불러오지 않는다.
 
 
-```
+```go
 func AesEncrypt(origData, key []byte) ([]byte, error) {
  padded_key := Padding(key, 16)
  block, err := aes.NewCipher(padded_key)
@@ -253,7 +253,7 @@ b'Th15_sup3r_s3cr3t_K3y_N3v3r_B3_L34k3d\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\
 대충 blind xpath injeciton 구문 짜서 length check하고
 
 
-```
+```py
 from arang import *
 
 s = requests.session()
@@ -297,7 +297,7 @@ get flag
 ### 요약 : blockchain 이지만 webchall, 1day랑 python trick 이용
 
 
-```
+```js
 modifier contains (string memory what, string memory where) {
  bytes memory whatBytes = bytes (what);
  bytes memory whereBytes = bytes (where);
@@ -363,7 +363,7 @@ IPv4Address('127.0.0.1')
 ```
 
 
-```
+```js
 nft_file = uri.split(nft_path + '/')[-1]
  if nft_file.find('.') != -1 and nft_file.split('.')[-1]:
  path = os.path.join(os.getcwd(), nft_path, nft_file)

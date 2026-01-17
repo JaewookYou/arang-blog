@@ -40,7 +40,7 @@ CTF 문제를 풀기 시작한 최근, 여러 분야의 문제들을 보고 있�
 **[Code]**
 
 
-```
+```py
 import socket
 import hashlib
 

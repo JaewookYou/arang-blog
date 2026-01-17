@@ -10,7 +10,7 @@ published: true
 `slick-logger``web``5 solvers`
 
 
-```
+```go
 func searchHandler(w http.ResponseWriter, r *http.Request) {
  channelID, ok := r.URL.Query()["channel"]
  if !ok || !validateParameter(channelID[0]) {
@@ -88,7 +88,7 @@ so if we give`"""`, it is going to blank, we could search like`like '%'`in mysql
 from now,
 
 
-```
+```go
 filepath.Walk("/var/lib/data/", func(path string, _ os.FileInfo, _ error) error {
  if strings.HasPrefix(path, "/var/lib/data/"+dir) && strings.HasSuffix(path, ".json") {
  newMessages := []Message{}
@@ -99,7 +99,7 @@ filepath.Walk("/var/lib/data/", func(path string, _ os.FileInfo, _ error) error 
 we could get secret channel's admin message,
 
 
-```
+```go
 users := []User{}
 readJSON("/var/lib/data/users.json", &users)
 
@@ -113,7 +113,7 @@ for _, user := range users {
 but because of this condition, there is no userid`USLACKBOT`at`users.json`
 
 
-```
+```go
 for _, message := range newMessages {
 >>> if re.MatchString(message.Text) {
  // Fill in user info

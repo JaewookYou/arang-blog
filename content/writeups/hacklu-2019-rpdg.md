@@ -70,7 +70,7 @@ sql injection vuln!
 쫙 뽑으면 다음과 같은 데이터를 얻을 수 있다.
 
 
-```
+```py
 #-*-coding:utf-8-*-
 import requests
 import sys

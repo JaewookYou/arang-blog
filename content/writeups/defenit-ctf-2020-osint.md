@@ -259,7 +259,7 @@ There is a repository in the name of ransomware you saw earlier.
 The repository contains the address of the c2 server([http://hack-the-c2.ctf.defenit.kr:9090/)](http://hack-the-c2.ctf.defenit.kr:9090/))and its code.
 
 
-```
+```py
 # health check! - ps
 @app.route('/he41th_ch3ck_C2_ps')
 def health_ps():
@@ -294,7 +294,7 @@ def health_netstat():
 If you access a route that is not normally known through the leaked code, you can get the process info and netstat info of the current c2 server. Through this, you can see that there is one more flask server that goes back to port 7777 in addition to port 9090. (Here is a lot of effort on the 127.0.0.11 host that uses port 37159, but the service is a host that manages dns on the network inside the docker. It has nothing to do with the challenge and can be found when you google Content)
 
 
-```
+```py
 # health check! - curl
 @app.route('/He4ltH_chEck_c2_cur1')
 def health_curl():
@@ -355,7 +355,7 @@ def filterUrl(url):
 The most important part, there is a service that takes the user's input url and passes it as an argument of curl. However, since the user's input is filtered with regex, it is the intent of the submitter to bypass this and SSRF (Server Side Request Forgery). (Fortunately, no one has solved the challenge with unintent)
 
 
-```
+```py
 if re.compile(r"(^[^:]{3}:)").search(url):
 	if re.compile(r"(^[^:]{3}:/[^(.|/)]/[^(.|/)]/)").search(url):
 		print('[+] curl url - {}'.format(url.replace("..","").encode('idna').decode().replace("..","")))
@@ -393,7 +393,7 @@ normalization, a file:/// scheme is used, and a local file leak is p
 So, we can obtain the code for the internal flask server running on port 7777.
 
 
-```
+```py
 def connect_db():
 	db = pymysql.connect(
 		user='b4d_aR4n9',
@@ -432,7 +432,7 @@ def kill_ransom():
 해당 코드를 살펴보면 172.22.0.4:3306 으로 mysql connect를 맺어 여기서 killcode를 읽고, killcode가 맞을 시 /app2/getFlag를 실행하여 flag를 출력해주는 것을 확인할 수 있습니다.
 
 
-```
+```py
 elif re.compile(r"(^[^:]{6}://(localhost|172\.22\.0\.\d{1,3})((:\d{1,5})/|/))").search(url):
 	print('[+] curl url - {}'.format(url))
 	return url

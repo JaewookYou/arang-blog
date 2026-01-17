@@ -28,7 +28,7 @@ XSS(Cross-Site Scripting) 취약점은 주로 사용자의 unvalid input이 브�
 사용자에게 파라미터를 전달받아 이를 dom에 뿌려야 하는 경우 사용자의 파라미터를 검증(validation)하여 XSS 공격에 사용되는 문구나 문자가 있을 경우 요청을 거절하거나 해당 문구/문자를 삭제합니다.
 
 
-대표적으로`"`(Double Quote),`'`(Single Quote),```(Back Quote),`<`(Left Angle Bracket),`>`(Right Angle Bracket) 등의 문자, script, alert, eval, onerror 등의 HTML Tag 및 Attribute 등이 대상입니다.
+대표적으로`"`(Double Quote),`'`(Single Quote),`` ` ``(Back Quote),`<`(Left Angle Bracket),`>`(Right Angle Bracket) 등의 문자, script, alert, eval, onerror 등의 HTML Tag 및 Attribute 등이 대상입니다.
 
 
 XSS 필터링 솔루션을 통해 필터링 하거나, 아니면 자체적으로 구현한 XSS Filter Function을 통해 필터링 하게 됩니다.
@@ -154,9 +154,9 @@ Quote(Single, Double, Back) 없이 따라서 문자로 된 정규식 표현을 .
 #### 괄호를 사용할 수 없는 경우
 
 
-```
+````
 Set.constructor`alert\x28document.domain\x29```
-```
+````
 
 
 `Set`: Javascript 내장 함수, 여기선 Set을 사용하였지만 다른 아무 내장함수를 넣어도 다 가능합니다
@@ -165,7 +165,7 @@ Set.constructor`alert\x28document.domain\x29```
 `constructor`: Set이라는 함수의 생성자를 설정합니다.
 
 
-```: Back Quote는 함수에 인자를 전달함과 동시에 함수를 실행할 수 있습니다. 위의 구문을 괄호와 따옴표를 사용하여 표현해보면
+```` ``` ````: Back Quote는 함수에 인자를 전달함과 동시에 함수를 실행할 수 있습니다. 위의 구문을 괄호와 따옴표를 사용하여 표현해보면
 `Set.constructor("alert(document.domain)")()`와 같습니다.
 
 
@@ -181,14 +181,14 @@ Set.constructor`alert\x28document.domain\x29```
 이하는 위와 설명이 같음
 
 
-```
+`````
 Set.constructor`alert\`document.domain\````
-```
+`````
 
 
-```
+````
 Set.constructor`alert\u0028document.domain\u0029```
-```
+````
 
 
 ```

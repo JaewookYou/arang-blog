@@ -25,7 +25,7 @@ JSP & Spring Framework로 구현된 웹 서비스에서 파일업로드 기능�
 하지만 만약 확장자 검사를 코드 단이 아닌 WAF단에서만 수행을 하고, random으로 생성된 파일명이 공격자에게 노출된다면(꽤나 많은 케이스에서 이런 상황이 발견되는것 같습니다)`commons-fileupload`모듈의 코드 구현 특징을 이용하여 이를 우회할 수 있습니다.
 
 
-```
+```java
 @Override
  protected void doPost(HttpServletRequest request, HttpServletResponse response)
  throws ServletException, IOException {
@@ -66,11 +66,11 @@ JSP & Spring Framework로 구현된 웹 서비스에서 파일업로드 기능�
  }
  }
 
-출처: https://dololak.tistory.com/720 [코끼리를 냉장고에 넣는 방법]
+//출처: https://dololak.tistory.com/720 [코끼리를 냉장고에 넣는 방법]
 ```
 
 
-```
+```java
 private String getExt(String fileName) {
  if (fileName.lastIndexOf(".") == -1)
  return "noext"; 
