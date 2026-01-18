@@ -18,7 +18,7 @@ export const homeTranslations: Record<Locale, {
     ko: {
         heroTitle1: "Security Research",
         heroTitle2: "CTF Writeups",
-        heroDescription: "웹 보안, 모의침투, AI 등 다양한 보안 연구와 CTF 대회 문제 풀이를 공유합니다.",
+        heroDescription: "AI 등 다양한 보안 연구와 CTF 대회 문제 풀이를 공유합니다.",
         blogPosts: "📝 블로그 포스트",
         ctfWriteups: "🚩 CTF Writeups",
         about: "🔐 About",
