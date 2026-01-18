@@ -98,6 +98,19 @@
   @apply bg-primary/30 text-foreground;
 }
 
+/* 긴 텍스트/URL 줄바꿈 처리 */
+.prose {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.prose a,
+.prose p,
+.prose li {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
 /* rehype-pretty-code 스타일 */
 pre {
   @apply overflow-x-auto rounded-lg border border-border py-4;
