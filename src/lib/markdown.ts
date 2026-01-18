@@ -2,6 +2,7 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
+import rehypeSlug from "rehype-slug";
 import rehypePrettyCode from "rehype-pretty-code";
 import rehypeStringify from "rehype-stringify";
 
@@ -20,6 +21,7 @@ export async function markdownToHtml(markdown: string): Promise<string> {
         .use(remarkParse)
         .use(remarkGfm)
         .use(remarkRehype, { allowDangerousHtml: true })
+        .use(rehypeSlug) // 헤딩에 자동 id 부여
         .use(rehypePrettyCode, {
             theme: "tokyo-night",
             keepBackground: true,

@@ -1,5 +1,6 @@
 import { defineConfig, defineCollection, s } from "velite";
 import rehypePrettyCode from "rehype-pretty-code";
+import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 
 /**
@@ -65,6 +66,7 @@ export default defineConfig({
     markdown: {
         remarkPlugins: [remarkGfm],
         rehypePlugins: [
+            rehypeSlug, // 헤딩에 자동 id 부여
             [
                 rehypePrettyCode,
                 {
