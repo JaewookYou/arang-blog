@@ -64,6 +64,12 @@ export const metadata: Metadata = {
         index: true,
         follow: true,
     },
+    // 사이트 인증
+    verification: {
+        other: {
+            "naver-site-verification": "05e4796147e82c78a57bbff763940a24a43fa55b",
+        },
+    },
 };
 
 export default function RootLayout({
