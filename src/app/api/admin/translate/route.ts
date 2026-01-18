@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { GoogleGenAI } from "@google/genai";
 import { upsertTranslation } from "@/lib/db";
+import { markdownToHtml } from "@/lib/markdown";
 
 /**
  * Admin Translation API
@@ -209,14 +210,16 @@ Output format (JSON only, no markdown code blocks):
                 };
             }
 
-            // DB에 저장
+            // 5. 마크다운을 HTML로 변환 후 DB에 저장
+            const htmlContent = await markdownToHtml(translations[locale].content);
+
             upsertTranslation(
                 slug,
                 type,
                 locale,
                 translations[locale].title,
                 translations[locale].description,
-                translations[locale].content
+                htmlContent
             );
         }
 
