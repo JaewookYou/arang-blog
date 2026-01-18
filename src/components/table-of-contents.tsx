@@ -23,29 +23,51 @@ export function TableOfContents() {
     const [isOpen, setIsOpen] = useState(false);
 
     useEffect(() => {
-        // 페이지 내 h2, h3 헤딩 수집
-        const elements = document.querySelectorAll("article h2, article h3");
-        const items: TocItem[] = Array.from(elements).map((el) => {
-            const id = el.id || el.textContent?.toLowerCase().replace(/\s+/g, "-") || "";
-            // comments-heading은 현재 로케일에 맞게 번역
-            const text = id === "comments-heading"
-                ? t("comments.title", locale)
-                : (el.textContent || "");
-            return {
-                id,
-                text,
-                level: parseInt(el.tagName.charAt(1)),
-            };
-        });
+        const collectHeadings = () => {
+            // 페이지 내 h2, h3 헤딩 수집
+            const elements = document.querySelectorAll("article h2, article h3");
+            const items: TocItem[] = Array.from(elements).map((el) => {
+                const id = el.id || el.textContent?.toLowerCase().replace(/\s+/g, "-") || "";
+                // comments-heading은 현재 로케일에 맞게 번역
+                const text = id === "comments-heading"
+                    ? t("comments.title", locale)
+                    : (el.textContent || "");
+                return {
+                    id,
+                    text,
+                    level: parseInt(el.tagName.charAt(1)),
+                };
+            });
 
-        // ID가 없는 헤딩에 ID 부여
-        elements.forEach((el, i) => {
-            if (!el.id) {
-                el.id = items[i].id;
-            }
-        });
+            // ID가 없는 헤딩에 ID 부여
+            elements.forEach((el, i) => {
+                if (!el.id) {
+                    el.id = items[i].id;
+                }
+            });
 
-        setHeadings(items);
+            setHeadings(items);
+        };
+
+        // 초기 수집 (약간의 지연으로 ContentRenderer가 완료된 후 실행)
+        const initialTimeout = setTimeout(collectHeadings, 100);
+
+        // MutationObserver로 article 내부 콘텐츠 변경 감지
+        const article = document.querySelector("article");
+        let observer: MutationObserver | null = null;
+
+        if (article) {
+            observer = new MutationObserver(() => {
+                // 콘텐츠 변경 시 헤딩 다시 수집
+                collectHeadings();
+            });
+            observer.observe(article, { childList: true, subtree: true });
+        }
+
+        return () => {
+            clearTimeout(initialTimeout);
+            observer?.disconnect();
+        };
     }, [locale]);
 
     useEffect(() => {
