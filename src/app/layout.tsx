@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { GoogleAnalytics } from "@/components/google-analytics";
+import { NaverAnalytics } from "@/components/naver-analytics";
 import "./globals.css";
 
 /**
@@ -83,6 +84,7 @@ export default function RootLayout({
                 className={`${fontSans.variable} ${fontMono.variable} font-sans antialiased min-h-screen flex flex-col`}
             >
                 <GoogleAnalytics />
+                <NaverAnalytics />
                 <ThemeProvider
                     attribute="class"
                     defaultTheme="dark"
