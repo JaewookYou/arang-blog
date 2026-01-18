@@ -8,7 +8,8 @@ export type Locale = "ko" | "en" | "ja" | "zh";
 export const homeTranslations: Record<Locale, {
     heroTitle1: string;
     heroTitle2: string;
-    heroDescription: string;
+    heroDescription1: string;
+    heroDescription2: string;
     blogPosts: string;
     ctfWriteups: string;
     about: string;
@@ -18,7 +19,8 @@ export const homeTranslations: Record<Locale, {
     ko: {
         heroTitle1: "Security Research",
         heroTitle2: "CTF Writeups",
-        heroDescription: "AI 등 다양한 보안 연구와 CTF 대회 문제 풀이를 공유합니다.",
+        heroDescription1: "AI 등 다양한 보안 연구와",
+        heroDescription2: "CTF 대회 문제 풀이를 공유합니다.",
         blogPosts: "📝 블로그 포스트",
         ctfWriteups: "🚩 CTF Writeups",
         about: "🔐 About",
@@ -28,7 +30,8 @@ export const homeTranslations: Record<Locale, {
     en: {
         heroTitle1: "Security Research",
         heroTitle2: "CTF Writeups",
-        heroDescription: "Sharing security research on web security, Penetration Testing, AI, and CTF challenge writeups.",
+        heroDescription1: "Sharing security research on web security,",
+        heroDescription2: " Penetration Testing, AI, and CTF challenge writeups.",
         blogPosts: "📝 Blog Posts",
         ctfWriteups: "🚩 CTF Writeups",
         about: "🔐 About",
@@ -38,7 +41,8 @@ export const homeTranslations: Record<Locale, {
     ja: {
         heroTitle1: "セキュリティリサーチ",
         heroTitle2: "CTF Writeups",
-        heroDescription: "Webセキュリティ、モックハッキング、AIなど様々なセキュリティ研究とCTF問題の解説を共有します。",
+        heroDescription1: "Webセキュリティ、モックハッキング、AIなど様々な",
+        heroDescription2: "セキュリティ研究とCTF問題の解説を共有します。",
         blogPosts: "📝 ブログ投稿",
         ctfWriteups: "🚩 CTF Writeups",
         about: "🔐 About",
@@ -48,7 +52,8 @@ export const homeTranslations: Record<Locale, {
     zh: {
         heroTitle1: "安全研究",
         heroTitle2: "CTF Writeups",
-        heroDescription: "分享网络安全、渗透测试、AI等安全研究以及CTF比赛解题思路。",
+        heroDescription1: "分享网络安全、渗透测试、AI等",
+        heroDescription2: "安全研究以及CTF比赛解题思路。",
         blogPosts: "📝 博客文章",
         ctfWriteups: "🚩 CTF Writeups",
         about: "🔐 关于",
