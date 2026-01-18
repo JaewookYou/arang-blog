@@ -25,11 +25,18 @@ export function TableOfContents() {
     useEffect(() => {
         // 페이지 내 h2, h3 헤딩 수집
         const elements = document.querySelectorAll("article h2, article h3");
-        const items: TocItem[] = Array.from(elements).map((el) => ({
-            id: el.id || el.textContent?.toLowerCase().replace(/\s+/g, "-") || "",
-            text: el.textContent || "",
-            level: parseInt(el.tagName.charAt(1)),
-        }));
+        const items: TocItem[] = Array.from(elements).map((el) => {
+            const id = el.id || el.textContent?.toLowerCase().replace(/\s+/g, "-") || "";
+            // comments-heading은 현재 로케일에 맞게 번역
+            const text = id === "comments-heading"
+                ? t("comments.title", locale)
+                : (el.textContent || "");
+            return {
+                id,
+                text,
+                level: parseInt(el.tagName.charAt(1)),
+            };
+        });
 
         // ID가 없는 헤딩에 ID 부여
         elements.forEach((el, i) => {
@@ -39,7 +46,7 @@ export function TableOfContents() {
         });
 
         setHeadings(items);
-    }, []);
+    }, [locale]);
 
     useEffect(() => {
         const observer = new IntersectionObserver(
