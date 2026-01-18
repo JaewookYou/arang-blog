@@ -64,7 +64,7 @@
 | **Auth** | Auth.js (NextAuth v5) |
 | **AI** | Gemini API (번역) |
 | **Code Highlighting** | Shiki (rehype-pretty-code) |
-| **Deployment** | PM2 + Nginx Reverse Proxy |
+| **Deployment** | Docker + Nginx Reverse Proxy |
 | **CI/CD** | GitHub Actions |
 
 ---
@@ -98,10 +98,25 @@ npm run dev
 ```bash
 npm run build
 npm start
-
-# Or with PM2
-pm2 start ecosystem.config.cjs
 ```
+
+### 🐳 Docker Deployment (Recommended)
+
+```bash
+# Build and run with Docker Compose
+sudo docker compose up -d --build
+
+# View logs
+sudo docker compose logs -f blog
+
+# Stop
+sudo docker compose down
+
+# Rebuild after code changes
+git pull && sudo docker compose up -d --build
+```
+
+Docker 이미지는 멀티 스테이지 빌드로 최적화되어 **~250MB** 크기입니다.
 
 ---
 

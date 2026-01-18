@@ -127,9 +127,11 @@ arang-blog/
 │       ├── translations.ts # 정적 페이지 번역
 │       └── markdown.ts     # Markdown → HTML
 ├── .github/workflows/       # GitHub Actions
-├── ecosystem.config.cjs     # PM2 설정
+├── Dockerfile              # Docker 이미지 빌드
+├── docker-compose.yml      # Docker Compose 설정
+├── ecosystem.config.cjs     # PM2 설정 (legacy)
 ├── velite.config.ts        # Velite 설정
-└── next.config.ts          # Next.js 설정
+└── next.config.ts          # Next.js 설정 (standalone)
 ```
 
 ---
@@ -147,7 +149,7 @@ arang-blog/
 | Auth | Auth.js v5 (NextAuth) |
 | AI | Gemini API (gemini-2.0-flash) |
 | Code Highlighting | Shiki + rehype-pretty-code |
-| Deployment | PM2 + Nginx Reverse Proxy |
+| Deployment | Docker + Nginx Reverse Proxy |
 | CI/CD | GitHub Actions (SSH Deploy) |
 
 ---
@@ -198,7 +200,8 @@ arang-blog/
 - [x] XSS Prevention
 
 ### Deployment
-- [x] PM2 프로세스 매니저
+- [x] Docker 컨테이너 (standalone 모드)
+- [x] 멀티 스테이지 빌드 (~250MB)
 - [x] GitHub Actions CI/CD
 - [x] SSH 배포 자동화
 
@@ -223,12 +226,16 @@ npm run dev
 # Build
 npm run build
 
-# Production
+# Production (Native)
 npm start
 
-# PM2 Deployment
-pm2 start ecosystem.config.cjs
-pm2 restart arang-blog
+# Docker Deployment (Recommended)
+sudo docker compose up -d --build
+sudo docker compose logs -f blog
+sudo docker compose down
+
+# Rebuild after code changes
+git pull && sudo docker compose up -d --build
 
 # Translate all posts
 node scripts/translate-all-posts.js
