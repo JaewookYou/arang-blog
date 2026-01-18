@@ -115,9 +115,28 @@ export default async function PostPage({ params }: PostPageProps) {
         }
     }
 
-    // 이전/다음 포스트 (날짜순)
+    // 이전/다음 포스트 (날짜순) - 번역된 제목 가져오기
     const prevPost = sortedPosts[currentIndex + 1];
     const nextPost = sortedPosts[currentIndex - 1];
+
+    // 이전/다음 글 제목 번역
+    let prevPostTitle = prevPost?.title;
+    let nextPostTitle = nextPost?.title;
+
+    if (currentLocale !== "ko") {
+        if (prevPost) {
+            const prevTranslation = getTranslation(prevPost.slug, "post", currentLocale);
+            if (prevTranslation) {
+                prevPostTitle = prevTranslation.title;
+            }
+        }
+        if (nextPost) {
+            const nextTranslation = getTranslation(nextPost.slug, "post", currentLocale);
+            if (nextTranslation) {
+                nextPostTitle = nextTranslation.title;
+            }
+        }
+    }
 
     return (
         <>
@@ -175,8 +194,8 @@ export default async function PostPage({ params }: PostPageProps) {
                 {/* Navigation */}
                 <PostNavigation
                     basePath="/posts"
-                    prevPost={prevPost ? { slug: prevPost.slug, title: prevPost.title } : undefined}
-                    nextPost={nextPost ? { slug: nextPost.slug, title: nextPost.title } : undefined}
+                    prevPost={prevPost ? { slug: prevPost.slug, title: prevPostTitle || prevPost.title } : undefined}
+                    nextPost={nextPost ? { slug: nextPost.slug, title: nextPostTitle || nextPost.title } : undefined}
                 />
 
                 {/* Comments */}

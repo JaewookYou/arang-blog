@@ -163,8 +163,8 @@ export function Comments({ postSlug, postType = "post" }: CommentsProps) {
     );
 
     return (
-        <section className="mt-12 pt-8 border-t border-border">
-            <h2 className="flex items-center gap-2 text-xl font-semibold mb-6">
+        <section id="comments" className="mt-12 pt-8 border-t border-border">
+            <h2 id="comments-heading" className="flex items-center gap-2 text-xl font-semibold mb-6">
                 <MessageSquare className="w-5 h-5" />
                 {t("comments.title", locale)} {comments.length > 0 && `(${comments.length})`}
             </h2>
