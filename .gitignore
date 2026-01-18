@@ -63,3 +63,6 @@ study/
 
 # User uploads
 data/uploads/
+
+# context backup
+contexts.md
