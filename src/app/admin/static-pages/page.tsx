@@ -86,6 +86,7 @@ export default function StaticPagesAdmin() {
                 body: JSON.stringify({
                     page: selectedPage,
                     content: content,
+                    locale: selectedLocale, // 현재 선택된 언어로 저장
                     autoTranslate: selectedLocale === "ko", // 한국어일 때만 자동 번역
                 }),
             });

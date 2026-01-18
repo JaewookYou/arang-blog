@@ -64,7 +64,7 @@ export async function POST(request: Request) {
 
     try {
         const body = await request.json();
-        const { page, content, autoTranslate = true } = body;
+        const { page, content, locale = "ko", autoTranslate = true } = body;
 
         if (!page || !content) {
             return NextResponse.json(
@@ -73,11 +73,11 @@ export async function POST(request: Request) {
             );
         }
 
-        // 1. 한국어로 먼저 저장
-        saveStaticPageContent(page, "ko", content);
+        // 1. 지정된 언어로 저장
+        saveStaticPageContent(page, locale, content);
 
-        // 2. 자동 번역 옵션이 켜져 있으면 다른 언어로 번역
-        if (autoTranslate) {
+        // 2. 한국어이고 자동 번역 옵션이 켜져 있으면 다른 언어로 번역
+        if (locale === "ko" && autoTranslate) {
             const apiKey = process.env.GEMINI_API_KEY;
             if (!apiKey) {
                 console.warn("GEMINI_API_KEY not set, skipping translation");
