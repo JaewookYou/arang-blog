@@ -3,7 +3,7 @@
 ## Overview
 
 **Arang Tech Blog**는 Next.js 15 기반의 개인 기술 블로그 + CTF Writeup 플랫폼입니다.
-Git-CMS를 통한 콘텐츠 관리와 Self-Hosted 배포 환경을 지원합니다.
+Git-CMS를 통한 콘텐츠 관리, Gemini AI 기반 다국어 자동 번역, Self-Hosted 배포 환경을 지원합니다.
 
 ---
 
@@ -16,9 +16,10 @@ Git-CMS를 통한 콘텐츠 관리와 Self-Hosted 배포 환경을 지원합니�
 - Tailwind CSS 다크 테마 설정
 
 ### Phase 2: Content Layer (Velite)
-- Velite를 사용한 MDX 콘텐츠 처리
-- Posts 스키마 정의 (title, description, date, tags)
-- Writeups 스키마 정의 (ctf, category, difficulty, points)
+- Velite를 사용한 MDX/Markdown 콘텐츠 처리
+- Posts 스키마 정의 (title, description, date, tags, category)
+- Writeups 스키마 정의 (ctf, category, difficulty, points, solves)
+- rehype-slug로 헤딩 자동 ID 생성
 - 자동 슬러그 생성 및 타입 안전성
 
 ### Phase 3: UI/UX
@@ -27,6 +28,7 @@ Git-CMS를 통한 콘텐츠 관리와 Self-Hosted 배포 환경을 지원합니�
 - 포스트 상세 페이지 (TOC, 코드 하이라이팅)
 - 다크/라이트 테마 토글
 - Reading Progress Bar
+- MutationObserver 기반 TOC 동기화
 
 ### Phase 4: Advanced Code Highlighting
 - `rehype-pretty-code` + Shiki 통합
@@ -34,6 +36,7 @@ Git-CMS를 통한 콘텐츠 관리와 Self-Hosted 배포 환경을 지원합니�
 - 코드 블록 복사 버튼
 - Line Wrap 토글 기능
 - 언어별 아이콘
+- ContentRenderer 클라이언트 컴포넌트
 
 ### Phase 5: SEO & Meta
 - 동적 OG 이미지 생성 (Edge Runtime)
@@ -43,22 +46,39 @@ Git-CMS를 통한 콘텐츠 관리와 Self-Hosted 배포 환경을 지원합니�
 
 ### Phase 6: Search
 - 클라이언트 사이드 Fuzzy Search (Fuse.js)
-- 실시간 검색 결과
+- Posts + Writeups 통합 검색
+- 실시간 드롭다운 검색 결과
 - 키보드 단축키 (Cmd+K)
 
 ### Phase 7: Comments & Database
 - SQLite 기반 댓글 시스템 (better-sqlite3)
-- 대댓글 지원
+- 대댓글 지원 (1단계)
 - Soft Delete
+- 관리자 삭제 기능
 
 ### Phase 8: Admin & Security Ops
 - Auth.js v5 GitHub OAuth 인증
 - Admin 대시보드 (`/admin`)
 - Git-CMS (GitHub API를 통한 콘텐츠 CRUD)
-- 글 작성/수정 기능
+- 글 작성/수정 기능 (클립보드 이미지 업로드)
 - 댓글 관리
 - Honeypot 보안 로깅
 - GitHub Actions CI/CD
+
+### Phase 9: Internationalization (i18n)
+- 4개 언어 지원 (ko, en, ja, zh)
+- 쿠키 기반 언어 설정 (locale)
+- 접속 국가/브라우저 언어 자동 감지
+- UI 텍스트 다국어화 (t() 함수)
+- 날짜 포맷 로케일라이제이션
+
+### Phase 10: AI Translation
+- Gemini API 기반 자동 번역
+- 코드블록/이미지 보존 (플레이스홀더 패턴)
+- Markdown → HTML 변환 후 DB 저장
+- 번역 관리 Admin 페이지
+- 정적 페이지 (Home, About) 다국어 지원
+- 개별 언어 수정 기능
 
 ---
 
@@ -66,23 +86,46 @@ Git-CMS를 통한 콘텐츠 관리와 Self-Hosted 배포 환경을 지원합니�
 
 ```
 arang-blog/
-├── content/                 # MDX 콘텐츠
+├── content/                 # MDX/Markdown 콘텐츠
 │   ├── posts/              # 블로그 포스트
 │   └── writeups/           # CTF Writeups
-├── data/                    # SQLite DB, 업로드 파일
-├── public/                  # 정적 파일
+├── data/
+│   └── blog.db             # SQLite (댓글, 번역, 로그)
+├── public/
+│   ├── images/             # 이미지 파일
+│   └── uploads/            # 업로드된 파일
+├── scripts/
+│   ├── deploy.sh           # 배포 스크립트
+│   ├── translate-all-posts.js  # 일괄 번역
+│   └── migrate-translations-to-html.js
 ├── src/
 │   ├── app/                # Next.js App Router
 │   │   ├── admin/          # Admin 페이지들
+│   │   │   ├── edit/       # 글 편집
+│   │   │   ├── posts/      # 글 관리
+│   │   │   ├── translations/  # 번역 관리
+│   │   │   └── static-pages/  # 정적 페이지 편집
 │   │   ├── api/            # API Routes
-│   │   ├── posts/          # 포스트 페이지
-│   │   └── writeups/       # Writeup 페이지
+│   │   │   ├── admin/      # Admin API
+│   │   │   ├── comments/   # 댓글 API
+│   │   │   └── og/         # OG 이미지 생성
+│   │   ├── posts/[slug]/   # 포스트 상세
+│   │   └── writeups/[slug]/ # Writeup 상세
 │   ├── components/         # React 컴포넌트
-│   │   └── ui/             # shadcn/ui 컴포넌트
-│   └── lib/                # 유틸리티
+│   │   ├── ui/             # shadcn/ui 컴포넌트
+│   │   ├── code-block.tsx  # 코드 블록
+│   │   ├── content-renderer.tsx  # HTML 렌더러
+│   │   ├── table-of-contents.tsx # TOC
+│   │   ├── comments.tsx    # 댓글
+│   │   └── locale-switcher.tsx   # 언어 전환
+│   ├── hooks/
+│   │   └── use-locale.ts   # 로케일 훅
+│   └── lib/
 │       ├── auth.ts         # Auth.js 설정
-│       ├── db.ts           # SQLite 연결
-│       └── utils.ts        # 헬퍼 함수
+│       ├── db.ts           # SQLite 래퍼
+│       ├── i18n.ts         # 다국어 유틸리티
+│       ├── translations.ts # 정적 페이지 번역
+│       └── markdown.ts     # Markdown → HTML
 ├── .github/workflows/       # GitHub Actions
 ├── ecosystem.config.cjs     # PM2 설정
 ├── velite.config.ts        # Velite 설정
@@ -95,15 +138,16 @@ arang-blog/
 
 | Category | Technology |
 |----------|------------|
-| Framework | Next.js 15 (App Router) |
+| Framework | Next.js 15 (App Router, SSG) |
 | Language | TypeScript |
 | Styling | Tailwind CSS |
 | UI | shadcn/ui + Radix UI |
-| Content | MDX + Velite |
+| Content | Markdown/MDX + Velite |
 | Database | SQLite (better-sqlite3) |
 | Auth | Auth.js v5 (NextAuth) |
+| AI | Gemini API (gemini-2.0-flash) |
 | Code Highlighting | Shiki + rehype-pretty-code |
-| Deployment | PM2 + Apache2 Reverse Proxy |
+| Deployment | PM2 + Nginx Reverse Proxy |
 | CI/CD | GitHub Actions (SSH Deploy) |
 
 ---
@@ -111,14 +155,22 @@ arang-blog/
 ## ✅ Implemented Features
 
 ### Blog Core
-- [x] MDX 기반 포스트/Writeup
+- [x] MDX/Markdown 기반 포스트/Writeup
 - [x] 태그/카테고리 필터링
 - [x] 클라이언트 검색 (Fuse.js)
 - [x] 코드 하이라이팅 + 라인 넘버
 - [x] 복사 버튼 + Line Wrap 토글
-- [x] Table of Contents
+- [x] Table of Contents (MutationObserver)
 - [x] Reading Progress Bar
 - [x] 다크/라이트 테마
+
+### Internationalization
+- [x] 4개 언어 지원 (ko, en, ja, zh)
+- [x] Gemini AI 자동 번역
+- [x] 코드블록/이미지 보존 번역
+- [x] 정적 페이지 다국어 지원
+- [x] UI 텍스트 다국어화
+- [x] 날짜 로케일라이제이션
 
 ### SEO
 - [x] 동적 OG 이미지
@@ -127,18 +179,23 @@ arang-blog/
 - [x] robots.txt
 - [x] 시맨틱 HTML
 
-### Admin
+### Admin Dashboard
 - [x] GitHub OAuth 로그인
 - [x] 대시보드 (통계)
 - [x] 글 작성 (Git-CMS)
-- [x] 글 수정
+- [x] 글 수정 (확장자 유지)
+- [x] 이미지 업로드 (클립보드)
+- [x] 번역 관리 (생성/편집/삭제)
+- [x] 정적 페이지 편집
 - [x] 댓글 관리
 
 ### Security
 - [x] Middleware 경로 보호
-- [x] Honeypot 로깅
+- [x] Honeypot 로깅 (/wp-admin, /.env 등)
 - [x] Admin Whitelist
 - [x] Security Headers
+- [x] Rate Limiting (댓글)
+- [x] XSS Prevention
 
 ### Deployment
 - [x] PM2 프로세스 매니저
@@ -149,11 +206,11 @@ arang-blog/
 
 ## 🔜 Future Improvements
 
-- [ ] 이미지 업로드 (클립보드 → 서버)
-- [ ] 미디어 라이브러리 관리
 - [ ] 예약 발행
 - [ ] 방문자 통계 대시보드
 - [ ] 댓글 알림
+- [ ] 미디어 라이브러리 관리
+- [ ] 글 삭제 기능
 
 ---
 
@@ -171,7 +228,10 @@ npm start
 
 # PM2 Deployment
 pm2 start ecosystem.config.cjs
-pm2 restart arang-blog --update-env
+pm2 restart arang-blog
+
+# Translate all posts
+node scripts/translate-all-posts.js
 ```
 
 ---
@@ -181,17 +241,79 @@ pm2 restart arang-blog --update-env
 `.env.local` 파일에 다음 설정 필요:
 
 ```env
+# Site
 NEXT_PUBLIC_SITE_URL=https://blog.arang.kr
-AUTH_URL=https://blog.arang.kr
+
+# Auth.js
 AUTH_SECRET=<openssl rand -base64 32>
 AUTH_GITHUB_ID=<GitHub OAuth Client ID>
 AUTH_GITHUB_SECRET=<GitHub OAuth Client Secret>
+ADMIN_WHITELIST=JaewookYou
+
+# Git-CMS
 GITHUB_TOKEN=<GitHub Personal Access Token>
 GITHUB_REPO_OWNER=JaewookYou
 GITHUB_REPO_NAME=arang-blog
-ADMIN_WHITELIST=JaewookYou
+
+# AI Translation
+GEMINI_API_KEY=<Gemini API Key>
+
+# Optional
+# DB_PATH=/custom/path/to/blog.db
 ```
 
 ---
 
-*Last Updated: 2026-01-17*
+## 🗄️ Database Schema
+
+```sql
+-- 댓글
+CREATE TABLE comments (
+    id INTEGER PRIMARY KEY,
+    slug TEXT NOT NULL,           -- 글 슬러그
+    type TEXT DEFAULT 'post',     -- 'post' | 'writeup'
+    author TEXT NOT NULL,
+    content TEXT NOT NULL,
+    parent_id INTEGER,            -- 대댓글용
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    deleted_at DATETIME           -- Soft delete
+);
+
+-- 번역
+CREATE TABLE translations (
+    id INTEGER PRIMARY KEY,
+    slug TEXT NOT NULL,
+    type TEXT NOT NULL,           -- 'post' | 'writeup'
+    locale TEXT NOT NULL,         -- 'en' | 'ja' | 'zh'
+    title TEXT NOT NULL,
+    description TEXT,
+    content TEXT NOT NULL,        -- HTML
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME,
+    UNIQUE(slug, type, locale)
+);
+
+-- 정적 페이지 번역
+CREATE TABLE static_pages (
+    id INTEGER PRIMARY KEY,
+    page_key TEXT NOT NULL,       -- 'home' | 'about'
+    locale TEXT NOT NULL,
+    content TEXT NOT NULL,        -- JSON
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(page_key, locale)
+);
+
+-- 허니팟 로그
+CREATE TABLE honeypot_logs (
+    id INTEGER PRIMARY KEY,
+    path TEXT NOT NULL,
+    ip TEXT,
+    user_agent TEXT,
+    method TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+*Last Updated: 2026-01-18*
