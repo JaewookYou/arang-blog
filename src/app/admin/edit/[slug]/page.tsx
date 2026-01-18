@@ -45,6 +45,7 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [content, setContent] = useState("");
     const [sha, setSha] = useState("");
+    const [extension, setExtension] = useState(".md");
     const editorRef = useRef<HTMLDivElement>(null);
 
     // 기존 글 로드
@@ -60,6 +61,9 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
                 if (res.ok) {
                     setContent(data.content);
                     setSha(data.sha);
+                    // path에서 확장자 추출 (예: content/posts/slug.md -> .md)
+                    const ext = data.path?.match(/\.(md|mdx)$/)?.[0] || ".md";
+                    setExtension(ext);
                 } else {
                     alert(`오류: ${data.error}`);
                 }
@@ -210,6 +214,7 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
                     slug,
                     content,
                     sha,
+                    extension,
                 }),
             });
 
