@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { List } from "lucide-react";
+import { List, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/use-locale";
 
 interface TocItem {
     id: string;
@@ -12,9 +14,10 @@ interface TocItem {
 
 /**
  * Table of Contents
- * 현재 페이지의 헤딩을 기반으로 목차 생성
+ * 현재 페이지의 헤딩을 기반으로 목차 생성 (다국어 지원)
  */
 export function TableOfContents() {
+    const locale = useLocale();
     const [headings, setHeadings] = useState<TocItem[]>([]);
     const [activeId, setActiveId] = useState<string>("");
     const [isOpen, setIsOpen] = useState(false);
@@ -88,7 +91,7 @@ export function TableOfContents() {
             {isOpen && (
                 <div className="lg:hidden fixed inset-0 z-40 bg-background/95 backdrop-blur-sm">
                     <div className="container mx-auto px-4 py-20">
-                        <h3 className="text-lg font-semibold mb-4">목차</h3>
+                        <h3 className="text-lg font-semibold mb-4">{t("toc.title", locale)}</h3>
                         <nav className="space-y-2">
                             {headings.map((heading) => (
                                 <button
@@ -109,7 +112,8 @@ export function TableOfContents() {
                             className="mt-6 w-full"
                             onClick={() => setIsOpen(false)}
                         >
-                            닫기
+                            <X className="h-4 w-4 mr-2" />
+                            {t("comments.cancel", locale)}
                         </Button>
                     </div>
                 </div>
@@ -117,7 +121,7 @@ export function TableOfContents() {
 
             {/* Desktop TOC Sidebar */}
             <aside className="hidden lg:block fixed right-8 top-32 w-64 max-h-[calc(100vh-200px)] overflow-y-auto">
-                <h3 className="text-sm font-semibold text-muted-foreground mb-3">목차</h3>
+                <h3 className="text-sm font-semibold text-muted-foreground mb-3">{t("toc.title", locale)}</h3>
                 <nav className="space-y-1 border-l border-border pl-4">
                     {headings.map((heading) => (
                         <button

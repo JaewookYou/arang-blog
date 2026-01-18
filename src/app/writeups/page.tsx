@@ -2,9 +2,9 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { writeups } from "@/.velite";
-import { formatDate } from "@/lib/utils";
+import { formatDateLocale, Locale } from "@/lib/i18n";
 import { TagFilter } from "@/components/tag-filter";
-import { writeupsPageTranslations, type Locale } from "@/lib/translations";
+import { writeupsPageTranslations, type Locale as TransLocale } from "@/lib/translations";
 import { getTranslation } from "@/lib/db";
 
 /**
@@ -45,7 +45,7 @@ export default async function WriteupsPage({ searchParams }: WriteupsPageProps) 
     // 쿠키에서 현재 언어
     const cookieStore = await cookies();
     const locale = (cookieStore.get("locale")?.value as Locale) || "ko";
-    const t = writeupsPageTranslations[locale] || writeupsPageTranslations.ko;
+    const tr = writeupsPageTranslations[locale as TransLocale] || writeupsPageTranslations.ko;
 
     // 발행된 writeup만 필터링 (번역 파일 제외)
     const publishedWriteups = writeups
@@ -89,14 +89,14 @@ export default async function WriteupsPage({ searchParams }: WriteupsPageProps) 
     return (
         <div className="max-w-3xl mx-auto">
             <div className="space-y-2 mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
+                <h1 className="text-3xl font-bold tracking-tight">{tr.title}</h1>
                 <p className="text-muted-foreground">
-                    {t.description}
+                    {tr.description}
                     {tag && (
-                        <span className="ml-2 text-primary">#{tag} {t.tagFiltering}</span>
+                        <span className="ml-2 text-primary">#{tag} {tr.tagFiltering}</span>
                     )}
                     {category && (
-                        <span className="ml-2 text-primary">{categoryIcons[category]} {category} {t.categoryFiltering}</span>
+                        <span className="ml-2 text-primary">{categoryIcons[category]} {category} {tr.categoryFiltering}</span>
                     )}
                 </p>
             </div>
@@ -135,8 +135,8 @@ export default async function WriteupsPage({ searchParams }: WriteupsPageProps) 
                 <div className="text-center py-12 text-muted-foreground">
                     <p>
                         {tag || category
-                            ? t.noWriteupsFiltered
-                            : t.noWriteups}
+                            ? tr.noWriteupsFiltered
+                            : tr.noWriteups}
                     </p>
                 </div>
             ) : (
@@ -182,7 +182,7 @@ export default async function WriteupsPage({ searchParams }: WriteupsPageProps) 
                                 )}
 
                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                    <time dateTime={writeup.date}>{formatDate(writeup.date)}</time>
+                                    <time dateTime={writeup.date}>{formatDateLocale(writeup.date, locale)}</time>
 
                                     {writeup.points && (
                                         <span className="font-mono">{writeup.points} pts</span>

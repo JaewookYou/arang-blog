@@ -1,13 +1,13 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { writeups } from "@/.velite";
-import { formatDate } from "@/lib/utils";
+import { formatDateLocale, t, Locale } from "@/lib/i18n";
 import { Comments } from "@/components/comments";
 import { ReadingProgress } from "@/components/reading-progress";
 import { TableOfContents } from "@/components/table-of-contents";
 import { PostLocaleSwitcher } from "@/components/post-locale-switcher";
 import { ContentRenderer } from "@/components/content-renderer";
-import { getTranslation, getAvailableLocales, type Locale } from "@/lib/db";
+import { getTranslation, getAvailableLocales, type Locale as DbLocale } from "@/lib/db";
 
 /**
  * Writeup Detail Page
@@ -152,7 +152,7 @@ export default async function WriteupPage({ params }: WriteupPageProps) {
                         )}
                         {isTranslated && (
                             <span className="text-xs text-blue-500">
-                                🌐 번역됨
+                                🌐 {t("translated", currentLocale as Locale)}
                             </span>
                         )}
                     </div>
@@ -169,7 +169,7 @@ export default async function WriteupPage({ params }: WriteupPageProps) {
 
                     {/* Stats Bar */}
                     <div className="flex items-center gap-6 text-sm text-muted-foreground border-y border-border py-4">
-                        <time dateTime={writeup.date}>{formatDate(writeup.date)}</time>
+                        <time dateTime={writeup.date}>{formatDateLocale(writeup.date, currentLocale as Locale)}</time>
 
                         {writeup.points && (
                             <span className="font-mono">

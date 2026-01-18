@@ -10,10 +10,12 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Globe } from "lucide-react";
+import { t, Locale } from "@/lib/i18n";
 
 /**
  * PostLocaleSwitcher
- * 게시글 상단에 표시되는 언어 선택 버튼
+ * 게시글 상단에 표시되는 언어 선택 버튼 (다국어 지원)
+ * 번역이 없는 언어는 표시하지 않음
  */
 
 const LOCALE_INFO: Record<string, { flag: string; name: string }> = {
@@ -49,17 +51,20 @@ export function PostLocaleSwitcher({ availableLocales, currentLocale }: PostLoca
         return null;
     }
 
-    // 사용 가능한 언어가 원본(ko)만 있으면 표시 안 함
+    // 원본(ko)과 실제 번역이 있는 언어만 포함
+    // availableLocales에 있는 언어만 표시
     const allLocales = ["ko", ...availableLocales.filter(l => l !== "ko")];
+
+    // 사용 가능한 언어가 원본(ko)만 있으면 표시 안 함
     if (allLocales.length <= 1) {
         return null;
     }
 
-    const currentInfo = LOCALE_INFO[currentLocale] || LOCALE_INFO.en;
+    const currentInfo = LOCALE_INFO[currentLocale] || LOCALE_INFO.ko;
 
     return (
         <div className="flex items-center gap-2 mb-4">
-            <span className="text-sm text-muted-foreground">언어:</span>
+            <span className="text-sm text-muted-foreground">{t("language", currentLocale as Locale)}:</span>
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm" className="gap-2">

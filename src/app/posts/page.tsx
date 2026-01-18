@@ -2,10 +2,9 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { posts } from "@/.velite";
-import { formatDate } from "@/lib/utils";
+import { formatDateLocale, isPostVisible, Locale } from "@/lib/i18n";
 import { TagFilter } from "@/components/tag-filter";
-import { isPostVisible } from "@/lib/i18n";
-import { postsPageTranslations, type Locale } from "@/lib/translations";
+import { postsPageTranslations, type Locale as TransLocale } from "@/lib/translations";
 import { getTranslation } from "@/lib/db";
 
 /**
@@ -28,7 +27,7 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
     // 쿠키에서 현재 언어
     const cookieStore = await cookies();
     const locale = (cookieStore.get("locale")?.value as Locale) || "ko";
-    const t = postsPageTranslations[locale] || postsPageTranslations.ko;
+    const tr = postsPageTranslations[locale as TransLocale] || postsPageTranslations.ko;
 
     // 발행된 포스트만 필터링 (번역 파일 제외)
     const publishedPosts = posts
@@ -65,12 +64,12 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
     return (
         <div className="max-w-3xl mx-auto">
             <div className="space-y-2 mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">{t.title}</h1>
+                <h1 className="text-3xl font-bold tracking-tight">{tr.title}</h1>
                 <p className="text-muted-foreground">
-                    {t.description}
+                    {tr.description}
                     {tag && (
                         <span className="ml-2 text-primary">
-                            #{tag} {t.tagFiltering}
+                            #{tag} {tr.tagFiltering}
                         </span>
                     )}
                 </p>
@@ -85,8 +84,8 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
                 <div className="text-center py-12 text-muted-foreground">
                     <p>
                         {tag
-                            ? `"${tag}" ${t.noPostsWithTag}`
-                            : t.noPosts}
+                            ? `"${tag}" ${tr.noPostsWithTag}`
+                            : tr.noPosts}
                     </p>
                 </div>
             ) : (
@@ -112,7 +111,7 @@ export default async function PostsPage({ searchParams }: PostsPageProps) {
                                 )}
 
                                 <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                    <time dateTime={post.date}>{formatDate(post.date)}</time>
+                                    <time dateTime={post.date}>{formatDateLocale(post.date, locale)}</time>
 
                                     {post.tags.length > 0 && (
                                         <div className="flex gap-2">

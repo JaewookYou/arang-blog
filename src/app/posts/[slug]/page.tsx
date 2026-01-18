@@ -1,14 +1,14 @@
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { posts } from "@/.velite";
-import { formatDate } from "@/lib/utils";
+import { formatDateLocale, t, Locale } from "@/lib/i18n";
 import { ReadingProgress } from "@/components/reading-progress";
 import { TableOfContents } from "@/components/table-of-contents";
 import { PostNavigation } from "@/components/post-navigation";
 import { Comments } from "@/components/comments";
 import { PostLocaleSwitcher } from "@/components/post-locale-switcher";
 import { ContentRenderer } from "@/components/content-renderer";
-import { getTranslation, getAvailableLocales, type Locale } from "@/lib/db";
+import { getTranslation, getAvailableLocales, type Locale as DbLocale } from "@/lib/db";
 
 /**
  * Post Detail Page
@@ -144,7 +144,7 @@ export default async function PostPage({ params }: PostPageProps) {
                     )}
 
                     <div className="flex items-center gap-4 text-sm text-muted-foreground border-b border-border pb-4">
-                        <time dateTime={post.date}>{formatDate(post.date)}</time>
+                        <time dateTime={post.date}>{formatDateLocale(post.date, currentLocale as Locale)}</time>
 
                         {post.tags.length > 0 && (
                             <div className="flex gap-2">
@@ -161,7 +161,7 @@ export default async function PostPage({ params }: PostPageProps) {
 
                         {isTranslated && (
                             <span className="text-xs text-blue-500">
-                                🌐 번역됨
+                                🌐 {t("translated", currentLocale as Locale)}
                             </span>
                         )}
                     </div>

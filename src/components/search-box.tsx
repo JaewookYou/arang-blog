@@ -6,6 +6,8 @@ import { Search, X, FileText, Flag } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/use-locale";
 
 interface SearchItem {
     title: string;
@@ -24,12 +26,13 @@ interface SearchBoxProps {
 }
 
 /**
- * 검색 컴포넌트
+ * 검색 컴포넌트 (다국어 지원)
  * 클라이언트 사이드 퍼지 검색
  */
 export function SearchBox({ items }: SearchBoxProps) {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const locale = useLocale();
     const [query, setQuery] = useState(searchParams.get("q") || "");
     const [results, setResults] = useState<SearchItem[]>([]);
     const [isOpen, setIsOpen] = useState(false);
@@ -80,7 +83,7 @@ export function SearchBox({ items }: SearchBoxProps) {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                     type="search"
-                    placeholder="포스트, Writeup 검색..."
+                    placeholder={t("search.placeholder", locale)}
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     onFocus={() => setIsOpen(true)}
@@ -149,7 +152,10 @@ export function SearchBox({ items }: SearchBoxProps) {
                                     setIsOpen(false);
                                 }}
                             >
-                                모든 결과 보기 ({results.length})
+                                {locale === "ko" ? `모든 결과 보기 (${results.length})` :
+                                    locale === "en" ? `View all results (${results.length})` :
+                                        locale === "ja" ? `すべての結果を見る (${results.length})` :
+                                            `查看所有结果 (${results.length})`}
                             </Button>
                         </div>
                     )}
@@ -159,7 +165,7 @@ export function SearchBox({ items }: SearchBoxProps) {
             {/* 결과 없음 */}
             {isOpen && query && results.length === 0 && (
                 <div className="absolute top-full mt-2 w-full bg-card border border-border rounded-lg shadow-lg z-50 p-4 text-center text-muted-foreground">
-                    검색 결과가 없습니다.
+                    {t("search.noresults", locale)}
                 </div>
             )}
 

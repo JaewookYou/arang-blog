@@ -1,5 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/use-locale";
 
 interface PostNavProps {
     prevPost?: {
@@ -15,9 +19,11 @@ interface PostNavProps {
 
 /**
  * Post Navigation
- * 이전/다음 포스트로 이동하는 네비게이션
+ * 이전/다음 포스트로 이동하는 네비게이션 (다국어 지원)
  */
 export function PostNavigation({ prevPost, nextPost, basePath }: PostNavProps) {
+    const locale = useLocale();
+
     if (!prevPost && !nextPost) return null;
 
     return (
@@ -32,7 +38,7 @@ export function PostNavigation({ prevPost, nextPost, basePath }: PostNavProps) {
                         >
                             <span className="flex items-center text-sm text-muted-foreground mb-1">
                                 <ChevronLeft className="h-4 w-4 mr-1" />
-                                이전 글
+                                {t("nav.previous", locale)}
                             </span>
                             <span className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">
                                 {prevPost.title}
@@ -49,7 +55,7 @@ export function PostNavigation({ prevPost, nextPost, basePath }: PostNavProps) {
                             className="group flex flex-col items-end text-right p-4 rounded-lg border border-border hover:border-primary transition-colors"
                         >
                             <span className="flex items-center text-sm text-muted-foreground mb-1">
-                                다음 글
+                                {t("nav.next", locale)}
                                 <ChevronRight className="h-4 w-4 ml-1" />
                             </span>
                             <span className="font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">
