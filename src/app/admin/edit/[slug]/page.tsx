@@ -146,6 +146,10 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
         const descMatch = content.match(/^---[\s\S]*?description:\s*["']?(.+?)["']?\s*$/m);
         const description = descMatch ? descMatch[1] : "";
 
+        // frontmatter 제거하고 body만 추출
+        const bodyMatch = content.match(/^---[\s\S]*?---\n([\s\S]*)$/);
+        const bodyContent = bodyMatch ? bodyMatch[1] : content;
+
         if (!confirm("영어/일본어/중국어로 번역을 생성합니다. 진행할까요?")) return;
 
         setIsTranslating(true);
@@ -155,7 +159,7 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    content: content,
+                    content: bodyContent,  // frontmatter 제거된 body만 전송
                     title: title,
                     description: description,
                     slug: slug,
