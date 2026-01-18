@@ -158,6 +158,18 @@ export default async function AdminPage() {
                             </div>
                         </div>
                     </Link>
+                    <Link
+                        href="/admin/translations"
+                        className="flex items-center gap-3 p-4 rounded-lg border border-border hover:border-primary transition-colors"
+                    >
+                        <Globe className="h-6 w-6 text-cyan-500" />
+                        <div>
+                            <div className="font-medium">번역 관리</div>
+                            <div className="text-sm text-muted-foreground">
+                                게시글 번역 조회 및 삭제
+                            </div>
+                        </div>
+                    </Link>
                 </div>
             </div>
 
