@@ -3,16 +3,24 @@ import { addHoneypotLog } from "@/lib/db";
 
 /**
  * Honeypot API
- * 악의적인 경로 접근을 로깅
+ * WAF 룰셋 기반 공격 탐지 로깅
  */
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { path, ip, userAgent } = body;
+        const { path, ip, userAgent, method, category, severity, payload } = body;
 
         if (path && ip) {
-            addHoneypotLog(path, ip, userAgent || "unknown");
+            addHoneypotLog({
+                path,
+                ip,
+                userAgent: userAgent || "unknown",
+                method: method || "GET",
+                category: category || "unknown",
+                severity: severity || "LOW",
+                payload: payload || undefined,
+            });
         }
 
         return NextResponse.json({ success: true });

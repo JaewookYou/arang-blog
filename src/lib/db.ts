@@ -48,11 +48,17 @@ export function getDatabase(): Database.Database {
                 path TEXT NOT NULL,
                 ip TEXT NOT NULL,
                 user_agent TEXT,
+                method TEXT DEFAULT 'GET',
+                category TEXT DEFAULT 'unknown',
+                severity TEXT DEFAULT 'LOW',
+                payload TEXT,
                 timestamp TEXT DEFAULT (datetime('now'))
             );
 
             CREATE INDEX IF NOT EXISTS idx_honeypot_timestamp ON honeypot_logs(timestamp);
             CREATE INDEX IF NOT EXISTS idx_honeypot_ip ON honeypot_logs(ip);
+            CREATE INDEX IF NOT EXISTS idx_honeypot_category ON honeypot_logs(category);
+            CREATE INDEX IF NOT EXISTS idx_honeypot_severity ON honeypot_logs(severity);
 
             -- 번역 테이블
             CREATE TABLE IF NOT EXISTS translations (
@@ -188,16 +194,38 @@ export interface HoneypotLog {
     path: string;
     ip: string;
     user_agent: string | null;
+    method: string;
+    category: string;
+    severity: string;
+    payload: string | null;
     timestamp: string;
 }
 
-// Honeypot 로그 추가
-export function addHoneypotLog(path: string, ip: string, userAgent: string): void {
+export interface HoneypotLogInput {
+    path: string;
+    ip: string;
+    userAgent: string;
+    method?: string;
+    category?: string;
+    severity?: string;
+    payload?: string;
+}
+
+// Honeypot 로그 추가 (확장)
+export function addHoneypotLog(input: HoneypotLogInput): void {
     const db = getDatabase();
     db.prepare(`
-        INSERT INTO honeypot_logs (path, ip, user_agent)
-        VALUES (?, ?, ?)
-    `).run(path, ip, userAgent);
+        INSERT INTO honeypot_logs (path, ip, user_agent, method, category, severity, payload)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+        input.path,
+        input.ip,
+        input.userAgent,
+        input.method || "GET",
+        input.category || "unknown",
+        input.severity || "LOW",
+        input.payload || null
+    );
 }
 
 // Honeypot 로그 조회 (최근 N개)
@@ -234,6 +262,38 @@ export function getHoneypotStatsByPath(): { path: string; count: number }[] {
             LIMIT 20
         `)
         .all() as { path: string; count: number }[];
+}
+
+// 카테고리별 통계
+export function getHoneypotStatsByCategory(): { category: string; severity: string; count: number }[] {
+    const db = getDatabase();
+    return db
+        .prepare(`
+            SELECT category, severity, COUNT(*) as count 
+            FROM honeypot_logs 
+            GROUP BY category, severity
+            ORDER BY count DESC
+        `)
+        .all() as { category: string; severity: string; count: number }[];
+}
+
+// 심각도별 통계
+export function getHoneypotStatsBySeverity(): { severity: string; count: number }[] {
+    const db = getDatabase();
+    return db
+        .prepare(`
+            SELECT severity, COUNT(*) as count 
+            FROM honeypot_logs 
+            GROUP BY severity
+            ORDER BY 
+                CASE severity 
+                    WHEN 'CRITICAL' THEN 1 
+                    WHEN 'HIGH' THEN 2 
+                    WHEN 'MEDIUM' THEN 3 
+                    WHEN 'LOW' THEN 4 
+                END
+        `)
+        .all() as { severity: string; count: number }[];
 }
 
 // 전체 Honeypot 로그 수
