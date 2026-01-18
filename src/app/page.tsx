@@ -22,6 +22,7 @@ export default async function HomePage() {
                 </h1>
                 <p className="text-lg text-muted-foreground max-w-[600px] mx-auto">
                     {t.heroDescription1}
+                    <br />
                     {t.heroDescription2}
                 </p>
             </div>
