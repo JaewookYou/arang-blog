@@ -19,6 +19,51 @@ published: true
 
 ---
 
+## 기술 스택 (Tech Stack)
+
+이 블로그에 사용된 기술들:
+
+| 카테고리 | 기술 | 설명 |
+|---------|------|------|
+| **프레임워크** | Next.js 15 | App Router, React Server Components |
+| **콘텐츠** | Velite | MDX/Markdown을 타입 안전하게 처리 |
+| **스타일링** | Tailwind CSS + shadcn/ui | 다크 미니멀 디자인 시스템 |
+| **DB** | SQLite (better-sqlite3) | 댓글, 번역, 허니팟 로그 저장 |
+| **인증** | Auth.js (NextAuth v5) | GitHub OAuth 관리자 인증 |
+| **번역** | Gemini API | AI 기반 자동 번역 |
+| **배포** | Ubuntu Server + PM2 | Nginx 리버스 프록시 |
+| **CI/CD** | GitHub Actions | SSH 자동 배포 |
+| **코드 하이라이팅** | rehype-pretty-code | tokyo-night 테마 |
+
+---
+
+## 블로그 구조
+
+```
+arang-blog/
+├── content/           # 콘텐츠 (Velite)
+│   ├── posts/        # 블로그 글 (.md)
+│   └── writeups/     # CTF Writeup (.md)
+├── data/
+│   └── blog.db       # SQLite (댓글, 번역, 로그)
+├── public/
+│   ├── images/       # 이미지 파일
+│   └── uploads/      # 업로드된 파일
+├── src/
+│   ├── app/          # Next.js App Router
+│   │   ├── admin/    # 관리자 페이지
+│   │   ├── api/      # API 라우트
+│   │   ├── posts/    # 블로그 글 페이지
+│   │   └── writeups/ # Writeup 페이지
+│   ├── components/   # React 컴포넌트
+│   ├── hooks/        # Custom Hooks
+│   └── lib/          # 유틸리티 (DB, Auth, i18n)
+├── velite.config.ts  # Velite 설정
+└── next.config.ts    # Next.js 설정
+```
+
+---
+
 ## 시작: 최초 프롬프트 하나로 프로젝트 킥오프
 
 이 블로그 개발은 단 하나의 프롬프트로 시작됐다:
@@ -151,27 +196,33 @@ browser_subagent({
 
 ### 1. Next.js 15 기반 정적 블로그
 
-- **Velite**: MDX/Markdown 콘텐츠 관리
-- **App Router**: 최신 Next.js 라우팅
+- **Velite**: MDX/Markdown 콘텐츠 관리 + 타입 안전성
+- **App Router**: 최신 Next.js 라우팅 (Server Components)
 - **SSG**: 정적 사이트 생성으로 빠른 로딩
+- **코드 하이라이팅**: rehype-pretty-code (tokyo-night 테마)
 
 ![코드 하이라이팅](/images/posts/ai-dev/code-highlight.png)
 
 ### 2. 4개 언어 다국어 지원
 
 - **한국어, 영어, 일본어, 중국어** 지원
-- **Gemini API**로 자동 번역
-- **SQLite DB**에 번역 저장
+- **Gemini API**로 자동 번역 (코드블록/이미지 보존)
+- **SQLite DB**에 번역 저장 (HTML로 변환하여 저장)
 - 접속 국가/브라우저 언어 기반 자동 감지
 
 ![다국어 지원 - 한국어 모드](/images/posts/ai-dev/i18n-korean.png)
 
 ### 3. Admin 대시보드
 
+GitHub OAuth 인증 후 사용 가능한 관리자 기능:
+
 - **글 작성/수정**: 마크다운 에디터 (클립보드 이미지 자동 업로드)
-- **번역 관리**: 저장된 번역 수정/삭제
+- **번역 관리**: AI 번역 생성, 저장된 번역 수정/삭제
 - **댓글 관리**: 댓글 조회 및 삭제
-- **허니팟 로그**: `/wp-admin` 접근 시도 추적
+- **정적 페이지 편집**: Home, About 페이지 편집
+- **허니팟 로그**: `/wp-admin`, `/.env` 등 공격 시도 추적
+
+![Admin 대시보드](/images/posts/ai-dev/admin-dashboard.png)
 
 ### 4. GitHub Actions CI/CD
 
@@ -198,19 +249,26 @@ jobs:
 
 ### 5. 댓글 시스템
 
-- **SQLite 기반** 자체 호스팅
-- 대댓글 지원
-- 익명 닉네임 입력
+- **SQLite 기반** 자체 호스팅 (외부 서비스 의존 X)
+- **대댓글** 지원 (1단계)
+- **익명** 닉네임 입력
+- **관리자 삭제** 기능
 
 ![댓글 시스템](/images/posts/ai-dev/comments.png)
 
 ### 6. 검색 기능
 
-- Posts와 Writeups 통합 검색
-- 실시간 드롭다운 결과
+- Posts와 Writeups **통합 검색**
+- **실시간 드롭다운** 결과
 - 다국어 UI 지원
 
 ![검색 기능](/images/posts/ai-dev/search.png)
+
+### 7. 보안 기능
+
+- **허니팟**: 봇 공격 경로(`/wp-admin`, `/.env`, `/phpmyadmin`) 접근 로깅
+- **Rate Limiting**: 댓글 작성 제한
+- **XSS 방지**: HTML sanitization
 
 ---
 
@@ -237,8 +295,10 @@ const nextConfig: NextConfig = {
 
 **해결**: Commit API에서 자동 변환
 ```typescript
-// HTML 주석 → MDX 주석 자동 변환
-content = content.replace(/<!--([\s\S]*?)-->/g, '{/*$1*/}');
+// HTML 주석 → MDX 주석 자동 변환 (MDX 파일만)
+if (ext === ".mdx") {
+  content = content.replace(/<!--([\s\S]*?)-->/g, '{/*$1*/}');
+}
 ```
 
 ### 3. GitHub Actions SSH 연결 시 pm2 not found
@@ -253,11 +313,17 @@ source ~/.bashrc
 pm2 reload arang-blog
 ```
 
-### 4. 번역된 글이 404
+### 4. 번역 시 마크다운 구조 깨짐
 
-**문제**: 사용자가 언어 전환 시 slug-en.mdx 같은 별도 파일을 만들었더니 라우팅 복잡
+**문제**: 코드블록, 이미지 경로가 번역되면서 깨짐
 
-**해결**: 파일은 하나만 두고, 번역은 DB에 저장 → 쿠키의 locale 값에 따라 동적 표시
+**해결**: 코드블록/이미지를 플레이스홀더로 치환 → 번역 → 복원
+```typescript
+// 번역 전: 코드블록 추출
+const { processed, codeBlocks } = extractCodeBlocks(content);
+// 번역 후: 복원
+translatedContent = restoreCodeBlocks(translatedContent, codeBlocks);
+```
 
 ---
 
