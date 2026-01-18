@@ -1,13 +1,14 @@
 import { posts, writeups } from "@/.velite";
 import { SearchBox } from "@/components/search-box";
-import { formatDate } from "@/lib/utils";
+import { formatDateLocale, t, Locale } from "@/lib/i18n";
 import Link from "next/link";
 import { FileText, Flag } from "lucide-react";
+import { cookies } from "next/headers";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
     title: "Search",
-    description: "포스트와 CTF Writeup 검색",
+    description: "Search posts and CTF writeups",
 };
 
 interface SearchPageProps {
@@ -17,6 +18,10 @@ interface SearchPageProps {
 export default async function SearchPage({ searchParams }: SearchPageProps) {
     const { q } = await searchParams;
     const query = q || "";
+
+    // 쿠키에서 현재 언어
+    const cookieStore = await cookies();
+    const locale = (cookieStore.get("locale")?.value as Locale) || "ko";
 
     // 검색 데이터 준비
     const searchItems = [
@@ -60,8 +65,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     return (
         <div className="space-y-8">
             <div className="text-center space-y-4">
-                <h1 className="text-3xl font-bold">검색</h1>
-                <p className="text-muted-foreground">포스트와 CTF Writeup을 검색하세요</p>
+                <h1 className="text-3xl font-bold">{t("search.title", locale)}</h1>
+                <p className="text-muted-foreground">{t("search.description", locale)}</p>
             </div>
 
             {/* 검색 박스 */}
@@ -71,7 +76,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             {query && (
                 <div className="space-y-4">
                     <p className="text-muted-foreground">
-                        &quot;{query}&quot; 검색 결과: {results.length}건
+                        &quot;{query}&quot; {t("search.results", locale)}: {results.length}
+                        {locale === "ko" ? "건" : locale === "ja" ? "" : locale === "zh" ? "" : ""}
                     </p>
 
                     {results.length > 0 ? (
@@ -98,7 +104,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                                                 </p>
                                             )}
                                             <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                                                <span>{formatDate(item.date)}</span>
+                                                <span>{formatDateLocale(item.date, locale)}</span>
                                                 <span>•</span>
                                                 <span>
                                                     {item.type === "post" ? "Post" : `${("ctf" in item && item.ctf) || "CTF"}`}
@@ -111,7 +117,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
                         </div>
                     ) : (
                         <div className="text-center py-12 text-muted-foreground">
-                            검색 결과가 없습니다.
+                            {t("search.noresults", locale)}
                         </div>
                     )}
                 </div>
@@ -120,7 +126,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             {/* 검색 쿼리 없을 때 */}
             {!query && (
                 <div className="text-center py-12 text-muted-foreground">
-                    검색어를 입력하세요
+                    {t("search.enterquery", locale)}
                 </div>
             )}
         </div>
