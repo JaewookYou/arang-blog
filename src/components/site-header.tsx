@@ -7,6 +7,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import { t } from "@/lib/i18n";
+import { useLocale } from "@/hooks/use-locale";
 
 /**
  * Site Header Component
@@ -22,6 +24,7 @@ const navItems = [
 
 export function SiteHeader() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const locale = useLocale();
 
     return (
         <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -55,7 +58,7 @@ export function SiteHeader() {
                         className="inline-flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                     >
                         <Search className="h-5 w-5" />
-                        <span className="sr-only">검색</span>
+                        <span className="sr-only">{t("search.label", locale)}</span>
                     </Link>
 
                     {/* GitHub Link */}
@@ -98,7 +101,7 @@ export function SiteHeader() {
                         ) : (
                             <Menu className="h-5 w-5" />
                         )}
-                        <span className="sr-only">메뉴</span>
+                        <span className="sr-only">{t("menu", locale)}</span>
                     </Button>
                 </div>
             </div>

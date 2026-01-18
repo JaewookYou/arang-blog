@@ -46,6 +46,8 @@ const translations: Record<Locale, Record<string, string>> = {
         // 검색
         "search.placeholder": "게시글 검색...",
         "search.noresults": "검색 결과가 없습니다",
+        "search.label": "검색",
+        "menu": "메뉴",
 
         // 테마
         "theme.light": "라이트 모드",
@@ -73,6 +75,8 @@ const translations: Record<Locale, Record<string, string>> = {
         "tags.filter": "Tag Filter",
         "search.placeholder": "Search posts...",
         "search.noresults": "No results found",
+        "search.label": "Search",
+        "menu": "Menu",
         "theme.light": "Light Mode",
         "theme.dark": "Dark Mode",
         "theme.system": "System",
@@ -98,6 +102,8 @@ const translations: Record<Locale, Record<string, string>> = {
         "tags.filter": "タグフィルター",
         "search.placeholder": "記事を検索...",
         "search.noresults": "検索結果がありません",
+        "search.label": "検索",
+        "menu": "メニュー",
         "theme.light": "ライトモード",
         "theme.dark": "ダークモード",
         "theme.system": "システム設定",
@@ -123,6 +129,8 @@ const translations: Record<Locale, Record<string, string>> = {
         "tags.filter": "标签筛选",
         "search.placeholder": "搜索文章...",
         "search.noresults": "未找到结果",
+        "search.label": "搜索",
+        "menu": "菜单",
         "theme.light": "浅色模式",
         "theme.dark": "深色模式",
         "theme.system": "跟随系统",

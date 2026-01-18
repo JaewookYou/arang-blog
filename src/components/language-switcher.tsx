@@ -10,6 +10,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { t, Locale as I18nLocale } from "@/lib/i18n";
 
 /**
  * LanguageSwitcher
@@ -85,7 +86,7 @@ export function LanguageSwitcher() {
                 <Button variant="ghost" size="sm" className="h-9 gap-2">
                     <Globe className="h-4 w-4" />
                     <span className="hidden sm:inline">{currentInfo.flag}</span>
-                    <span className="sr-only">언어 선택</span>
+                    <span className="sr-only">{t("language", currentLocale as I18nLocale)}</span>
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
