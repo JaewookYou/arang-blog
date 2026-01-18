@@ -127,6 +127,11 @@ code {
   color: #f472b6 !important;
 }
 
+/* 인라인 코드 내부의 Shiki data-line 패딩 제거 */
+:not(pre)>code>[data-line] {
+  padding: 0 !important;
+}
+
 /* 코드 블록 라인 */
 code [data-line] {
   @apply px-4 border-l-2 border-transparent;
