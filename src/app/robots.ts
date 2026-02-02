@@ -5,7 +5,7 @@ import type { MetadataRoute } from "next";
  * 검색 엔진 크롤러 지침
  */
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://arang.dev";
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://blog.arang.kr";
 
 export default function robots(): MetadataRoute.Robots {
     return {

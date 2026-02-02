@@ -6,7 +6,7 @@ import type { MetadataRoute } from "next";
  * SEO를 위한 사이트맵 자동 생성
  */
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://arang.dev";
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://blog.arang.kr";
 
 export default function sitemap(): MetadataRoute.Sitemap {
     const staticRoutes: MetadataRoute.Sitemap = [

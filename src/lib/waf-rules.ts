@@ -28,7 +28,7 @@ export const HONEYPOT_PATHS: Record<AttackCategory, { paths: string[]; severity:
             "/wp-admin", "/wp-login.php", "/wp-content", "/wp-includes",
             "/wp-json", "/wp-cron.php",
             // 일반 Admin
-            "/administrator", "/admin.php", "/admin/login",
+            "/administrator", "/admin.php", 
             // Database Admin
             "/phpmyadmin", "/pma", "/myadmin", "/mysql", "/mysqladmin",
             "/adminer", "/dbadmin",

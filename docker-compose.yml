@@ -16,11 +16,13 @@ services:
       - AUTH_SECRET=${AUTH_SECRET}
       - AUTH_GITHUB_ID=${AUTH_GITHUB_ID}
       - AUTH_GITHUB_SECRET=${AUTH_GITHUB_SECRET}
+      - AUTH_URL=${AUTH_URL:-https://blog.arang.kr}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_REPO_OWNER=${GITHUB_REPO_OWNER:-JaewookYou}
       - GITHUB_REPO_NAME=${GITHUB_REPO_NAME:-arang-blog}
       - ADMIN_WHITELIST=${ADMIN_WHITELIST:-JaewookYou}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN}
       - DB_PATH=/app/data/blog.db
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000"]

@@ -5,7 +5,7 @@ import { posts, writeups } from "@/.velite";
  * Route Handler로 /rss.xml 또는 /feed.xml 제공
  */
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://arang.dev";
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://blog.arang.kr";
 
 function escapeXml(text: string): string {
     return text
