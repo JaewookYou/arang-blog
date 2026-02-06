@@ -1,0 +1,60 @@
+<VirtualHost *:80>
+    #main domain
+    ServerName arang.kr
+
+    #additional domain
+    ServerAlias www.arang.kr
+
+    #document Root
+    DocumentRoot /var/www/html/
+
+    #additional setting
+    <Directory /var/www/html/>
+        Options FollowSymLinks MultiViews
+        AllowOverride All
+        require all granted
+    </Directory>
+
+ #   AssignUserID arang arang
+
+    ErrorLog ${APACHE_LOG_DIR}/ar9nag3.com-error.log
+    CustomLog ${APACHE_LOG_DIR}/ar9ang3.com-access.log combined
+</VirtualHost>
+
+<VirtualHost *:443>
+    #main domain
+    ServerName arang.kr
+
+    #additional domain - removed *.arang.kr wildcard to prevent catching subdomains
+    ServerAlias www.arang.kr
+
+    #document Root
+    DocumentRoot /var/www/html/
+
+    #additional setting
+    <Directory /var/www/html/>
+        Options FollowSymLinks MultiViews
+        AllowOverride All
+        require all granted
+    </Directory>
+
+#    AssignUserID arang arang
+
+    ErrorLog ${APACHE_LOG_DIR}/ar9ang3.com-error.log
+    CustomLog ${APACHE_LOG_DIR}/ar9ang3.com-access.log combined
+
+    Header always set Strict-Transport-Security "max-age=31536000"
+
+    SSLEngine on
+
+    SSLProtocol all -SSLv2 -SSLv3
+
+    SSLCipherSuite ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-DSS-AES128-GCM-SHA256:kEDH+AESGCM:ECDHE-RSA-AES128-SHA256:ECDHE-ECDSA-AES128-SHA256:ECDHE-RSA-AES128-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES256-SHA384:ECDHE-ECDSA-AES256-SHA384:ECDHE-RSA-AES256-SHA:ECDHE-ECDSA-AES256-SHA:DHE-RSA-AES128-SHA256:DHE-RSA-AES128-SHA:DHE-DSS-AES128-SHA256:DHE-RSA-AES256-SHA256:DHE-DSS-AES256-SHA:DHE-RSA-AES256-SHA:AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA256:AES256-SHA256:AES128-SHA:AES256-SHA:AES:CAMELLIA:DES-CBC3-SHA:!aNULL:!eNULL:!EXPORT:!DES:!RC4:!MD5:!PSK:!aECDH:!EDH-DSS-DES-CBC3-SHA:!EDH-RSA-DES-CBC3-SHA:!KRB5-DES-CBC3-SHA
+
+    SSLHonorCipherOrder on
+
+    SSLCertificateFile "/etc/letsencrypt/live/arang.kr/cert.pem"
+    SSLCertificateKeyFile "/etc/letsencrypt/live/arang.kr/privkey.pem"
+    SSLCertificateChainFile "/etc/letsencrypt/live/arang.kr/chain.pem"
+
+</VirtualHost>
