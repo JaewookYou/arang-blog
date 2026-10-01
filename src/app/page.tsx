@@ -1,5 +1,6 @@
 import { getHomeTranslation } from "@/lib/translations";
 import { getRequestLocale } from "@/lib/locale-server";
+import { InlineMarkdown } from "@/components/inline-markdown";
 
 /**
  * Arang Tech Blog - Home Page
@@ -15,14 +16,14 @@ export default async function HomePage() {
             {/* Hero Section */}
             <div className="text-center space-y-4">
                 <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-                    {t.heroTitle1}
+                    <InlineMarkdown text={t.heroTitle1} />
                     <br />
-                    <span className="text-primary">&</span> {t.heroTitle2}
+                    <span className="text-primary">&</span> <InlineMarkdown text={t.heroTitle2} />
                 </h1>
                 <p className="text-lg text-muted-foreground max-w-[600px] mx-auto">
-                    {t.heroDescription1}
+                    <InlineMarkdown text={t.heroDescription1} />
                     <br />
-                    {t.heroDescription2}
+                    <InlineMarkdown text={t.heroDescription2} />
                 </p>
             </div>
 
@@ -33,7 +34,7 @@ export default async function HomePage() {
                     className="group px-6 py-3 bg-card border border-border rounded-lg hover:border-primary hover:bg-card/80 transition-all"
                 >
                     <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                        {t.blogPosts}
+                        <InlineMarkdown text={t.blogPosts} />
                     </span>
                 </a>
                 <a
@@ -41,7 +42,7 @@ export default async function HomePage() {
                     className="group px-6 py-3 bg-card border border-border rounded-lg hover:border-primary hover:bg-card/80 transition-all"
                 >
                     <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                        {t.ctfWriteups}
+                        <InlineMarkdown text={t.ctfWriteups} />
                     </span>
                 </a>
                 <a
@@ -49,17 +50,17 @@ export default async function HomePage() {
                     className="group px-6 py-3 bg-card border border-border rounded-lg hover:border-primary hover:bg-card/80 transition-all"
                 >
                     <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                        {t.about}
+                        <InlineMarkdown text={t.about} />
                     </span>
                 </a>
             </div>
 
             {/* Terminal-style footer */}
             <div className="mt-12 font-mono text-sm text-muted-foreground text-center">
-                <span className="text-primary">$</span> {t.whoami}
+                <span className="text-primary">$</span> <InlineMarkdown text={t.whoami} />
                 <br />
                 <span className="text-muted-foreground/60">
-                    {t.role}
+                    <InlineMarkdown text={t.role} />
                 </span>
             </div>
         </div>

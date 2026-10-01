@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getProfileTranslation } from "@/lib/translations";
 import { getRequestLocale } from "@/lib/locale-server";
+import { InlineMarkdown } from "@/components/inline-markdown";
 
 /**
  * About Page
@@ -23,71 +24,70 @@ export default async function AboutPage() {
                 {/* Header */}
                 <div className="space-y-4">
                     <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                        {t.name} <span className="text-primary">(arang)</span>
+                        <InlineMarkdown text={t.name} /> <span className="text-primary">(arang)</span>
                     </h1>
                     <p className="text-lg text-muted-foreground">
-                        {t.subtitle}
+                        <InlineMarkdown text={t.subtitle} />
                     </p>
                 </div>
 
                 {/* Career */}
                 <section className="prose prose-zinc dark:prose-invert prose-sm max-w-none">
-                    <h2 className="text-xl font-semibold mb-3">{t.career}</h2>
+                    <InlineMarkdown as="h2" className="text-xl font-semibold mb-3" text={t.career} />
                     <ul className="space-y-1.5 text-sm">
                         {t.careerItems.map((item, i) => (
-                            <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
+                            <InlineMarkdown key={i} as="li" text={item} />
                         ))}
                     </ul>
                 </section>
 
                 {/* Awards */}
                 <section className="prose prose-zinc dark:prose-invert prose-sm max-w-none">
-                    <h2 className="text-xl font-semibold mb-3">{t.awards}</h2>
+                    <InlineMarkdown as="h2" className="text-xl font-semibold mb-3" text={t.awards} />
                     <ul className="space-y-1.5 text-sm">
                         {t.awardItems.map((item, i) => (
-                            <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
+                            <InlineMarkdown key={i} as="li" text={item} />
                         ))}
                     </ul>
                 </section>
 
                 {/* Bug Bounty & CVE */}
                 <section className="prose prose-zinc dark:prose-invert prose-sm max-w-none">
-                    <h2 className="text-xl font-semibold mb-3">{t.bugBounty}</h2>
+                    <InlineMarkdown as="h2" className="text-xl font-semibold mb-3" text={t.bugBounty} />
                     <ul className="space-y-1.5 text-sm">
                         {t.bugBountyItems.map((item, i) => (
-                            <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
+                            <InlineMarkdown key={i} as="li" text={item} />
                         ))}
                     </ul>
                 </section>
 
                 {/* CTF Records */}
                 <section className="prose prose-zinc dark:prose-invert prose-sm max-w-none">
-                    <h2 className="text-xl font-semibold mb-3">{t.ctf}</h2>
+                    <InlineMarkdown as="h2" className="text-xl font-semibold mb-3" text={t.ctf} />
                     <ul className="space-y-1.5 text-sm">
                         {t.ctfItems.map((item, i) => (
-                            <li key={i} dangerouslySetInnerHTML={{ __html: item }} />
+                            <InlineMarkdown key={i} as="li" text={item} />
                         ))}
                     </ul>
                 </section>
 
                 {/* Interests */}
                 <section className="prose prose-zinc dark:prose-invert max-w-none">
-                    <h2 className="text-xl font-semibold mb-3">{t.interests}</h2>
+                    <InlineMarkdown as="h2" className="text-xl font-semibold mb-3" text={t.interests} />
                     <div className="flex flex-wrap gap-2">
                         {t.interestItems.map((item, i) => (
-                            <span
+                            <InlineMarkdown
                                 key={i}
                                 className="px-3 py-1.5 bg-primary/10 text-primary rounded-full text-sm font-medium"
-                            >
-                                {item}
-                            </span>
+                                text={item}
+                            />
                         ))}
                     </div>
                 </section>
 
                 {/* Contact */}
                 <div className="border-t border-border pt-8">
-                    <h2 className="text-xl font-semibold mb-4">{t.contact}</h2>
+                    <InlineMarkdown as="h2" className="text-xl font-semibold mb-4" text={t.contact} />
                     <div className="flex flex-wrap gap-4">
                         <Link
                             href="https://github.com/JaewookYou"

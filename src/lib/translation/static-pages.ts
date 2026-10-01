@@ -3,6 +3,7 @@ import { generateJson } from "@/lib/gemini";
 import type { TranslationLocale } from "@/lib/i18n";
 import { countHangul } from "./validate";
 import { LANGUAGE_NAMES } from "./translate";
+import { markdownMarkers } from "@/lib/inline-markdown";
 
 /**
  * 정적 페이지(Home/About) JSON 번역
@@ -33,6 +34,19 @@ function schemaFor(value: JsonValue): Schema {
 
 const tagsOf = (s: string) => (s.match(/<\/?[a-zA-Z][^>]*>/g) || []).map((t) => t.replace(/\s+/g, " ")).join("");
 
+/** 원문에 있는 숫자 중 번역문에 없는 것 (개수까지 비교) */
+function missingDigits(source: string, translated: string): string[] {
+    const counts = new Map<string, number>();
+    for (const d of translated.match(/\d+/g) || []) counts.set(d, (counts.get(d) || 0) + 1);
+    const missing: string[] = [];
+    for (const d of source.match(/\d+/g) || []) {
+        const left = counts.get(d) || 0;
+        if (left > 0) counts.set(d, left - 1);
+        else missing.push(d);
+    }
+    return missing;
+}
+
 function compareShape(source: JsonValue, translated: JsonValue, path: string, errors: string[]) {
     if (Array.isArray(source)) {
         if (!Array.isArray(translated) || translated.length !== source.length) {
@@ -59,6 +73,10 @@ function compareShape(source: JsonValue, translated: JsonValue, path: string, er
             return;
         }
         if (tagsOf(source) !== tagsOf(translated)) errors.push(`${path}: HTML 태그가 바뀜`);
+        if (markdownMarkers(source) !== markdownMarkers(translated)) errors.push(`${path}: 마크다운 기호가 바뀜`);
+        // 연도·순위·CVE 번호 같은 숫자가 빠지면 정보가 사라진 것이다 (예: "(2019 ~ )" 누락)
+        const missingNumbers = missingDigits(source, translated);
+        if (missingNumbers.length) errors.push(`${path}: 숫자 누락 (${missingNumbers.join(", ")})`);
         if (countHangul(translated) > Math.max(2, countHangul(source) * 0.2)) errors.push(`${path}: 한국어가 남음`);
     }
 }
@@ -78,8 +96,9 @@ export async function translateStaticPageJson(sourceJson: string, locale: Transl
         const result = await generateJson<JsonValue>({
             system: `You translate the JSON content of a Korean security researcher's personal website into ${LANGUAGE_NAMES[locale]}.
 Translate only human-readable string values. Keep every key, the array lengths, and the order exactly the same.
-Keep HTML tags and attributes (such as <strong>, <a href="...">) exactly as they are and translate only the text between them.
+Values are inline Markdown and may also contain HTML. Keep Markdown syntax (**bold**, *italic*, \`code\`, [text](url), ~~strike~~) and HTML tags/attributes exactly as they are, and translate only the text inside them. Never translate link URLs or code.
 Do not translate CVE IDs, company names, team names, product names, competition names written in English, or other proper nouns.
+Keep every number (years, dates, ranks, scores, IDs) and every parenthetical such as "(2019 ~ )". Do not drop or shorten any part.
 Emoji and symbols must stay where they are. Return the translated JSON only.`,
             prompt: `${feedback}${JSON.stringify(source, null, 2)}`,
             schema: schemaFor(source),

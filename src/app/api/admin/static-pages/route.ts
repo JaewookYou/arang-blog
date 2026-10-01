@@ -20,8 +20,30 @@ function isPageKey(value: unknown): value is PageKey {
     return typeof value === "string" && (PAGE_KEYS as readonly string[]).includes(value);
 }
 
+function getDefaults(pageKey: PageKey) {
+    return pageKey === "home" ? homeTranslations : profileTranslations;
+}
+
 function getDefaultTemplate(pageKey: PageKey): string {
-    return JSON.stringify(pageKey === "home" ? homeTranslations.ko : profileTranslations.ko, null, 2);
+    return JSON.stringify(getDefaults(pageKey).ko, null, 2);
+}
+
+/** 저장하려는 JSON이 기본 템플릿과 같은 구조(문자열/문자열 목록)인지 검사 */
+function validateShape(pageKey: PageKey, data: Record<string, unknown>): string[] {
+    const template = getDefaults(pageKey).ko as Record<string, unknown>;
+    const errors: string[] = [];
+    for (const [key, expected] of Object.entries(template)) {
+        if (!(key in data)) continue; // 빠진 키는 기본값으로 채워진다
+        const value = data[key];
+        if (Array.isArray(expected)) {
+            if (!Array.isArray(value) || !value.every((v) => typeof v === "string")) {
+                errors.push(`${key}: 문자열 목록이어야 합니다.`);
+            }
+        } else if (typeof value !== "string") {
+            errors.push(`${key}: 문자열이어야 합니다.`);
+        }
+    }
+    return errors;
 }
 
 export async function GET(request: Request) {
@@ -43,6 +65,8 @@ export async function GET(request: Request) {
     return NextResponse.json({
         contents: getAllStaticPageContent(pageKey),
         defaultTemplate,
+        // 언어별 기본값 (DB에 저장된 내용이 없을 때 편집기에서 사용)
+        defaults: getDefaults(pageKey),
         geminiConfigured: isGeminiConfigured(),
     });
 }
@@ -98,11 +122,16 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "page, content, locale이 필요합니다." }, { status: 400 });
         }
 
+        let parsed: Record<string, unknown>;
         try {
-            const parsed = JSON.parse(content);
+            parsed = JSON.parse(content);
             if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
         } catch {
             return NextResponse.json({ error: "올바른 JSON 객체가 아닙니다." }, { status: 400 });
+        }
+        const shapeErrors = validateShape(page, parsed);
+        if (shapeErrors.length) {
+            return NextResponse.json({ error: shapeErrors.join("\n") }, { status: 400 });
         }
 
         saveStaticPageContent(page, locale, content);
