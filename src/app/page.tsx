@@ -1,5 +1,5 @@
-import { cookies } from "next/headers";
-import { getHomeTranslation, type Locale } from "@/lib/translations";
+import { getHomeTranslation } from "@/lib/translations";
+import { getRequestLocale } from "@/lib/locale-server";
 
 /**
  * Arang Tech Blog - Home Page
@@ -7,8 +7,7 @@ import { getHomeTranslation, type Locale } from "@/lib/translations";
  * DB 저장된 콘텐츠 우선, fallback은 하드코딩 데이터
  */
 export default async function HomePage() {
-    const cookieStore = await cookies();
-    const locale = (cookieStore.get("locale")?.value as Locale) || "ko";
+    const locale = await getRequestLocale();
     const t = getHomeTranslation(locale);
 
     return (

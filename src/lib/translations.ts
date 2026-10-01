@@ -191,7 +191,7 @@ export const profileTranslations: Record<Locale, {
             "한국인터넷진흥원(KISA) S/W 취약점 제보 다수",
             "네이버(NHN) 버그바운티 웹 취약점 제보 다수",
         ],
-        ctf: "� CTF Records",
+        ctf: "🚩 CTF Records",
         ctfItems: [
             "2025 DEF CON CTF 예선 <strong>2위</strong>",
             "2024 DEF CON CTF 예선 <strong>2위</strong>, 본선 <strong>3위</strong>",
@@ -207,7 +207,7 @@ export const profileTranslations: Record<Locale, {
             "2020 DEF CON CTF 본선 <strong>12위</strong> (Team. koreanbadass)",
             "2020 금융보안원 FIESTA 금보원부 <strong>1위 우승</strong> (Team. pgb5)",
         ],
-        interests: "�🔐 Interests",
+        interests: "🔐 Interests",
         interestItems: ["Web Security", "CTF(Capture the Flag)", "Penetration Testing", "Financial Security", "Bug Bounty", "AI Security"],
         contact: "📬 Contact",
     },
@@ -246,7 +246,7 @@ export const profileTranslations: Record<Locale, {
             "Multiple KISA S/W Vulnerability Reports",
             "Multiple Naver Bug Bounty Web Vulnerability Reports",
         ],
-        ctf: "� CTF Records",
+        ctf: "🚩 CTF Records",
         ctfItems: [
             "2025 DEF CON CTF Quals <strong>2nd</strong>",
             "2024 DEF CON CTF Quals <strong>2nd</strong>, Finals <strong>3rd</strong>",
@@ -262,7 +262,7 @@ export const profileTranslations: Record<Locale, {
             "2020 DEF CON CTF Finals <strong>12th</strong> (Team. koreanbadass)",
             "2020 FSI FIESTA <strong>1st Winner</strong> (Team. pgb5)",
         ],
-        interests: "�🔐 Interests",
+        interests: "🔐 Interests",
         interestItems: ["Web Security", "CTF(Capture the Flag)", "Penetration Testing", "Financial Security", "Bug Bounty", "AI Security"],
         contact: "📬 Contact",
     },
@@ -381,32 +381,42 @@ export const profileTranslations: Record<Locale, {
 // ============ DB에서 정적 페이지 콘텐츠 가져오기 ============
 import { getStaticPageContent } from "./db";
 
+/** DB에 저장된 JSON을 기본값과 합친다. 키가 빠지거나 타입이 다르면 기본값을 쓴다. */
+function mergeWithFallback<T extends Record<string, unknown>>(fallback: T, raw: string): T {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const result = { ...fallback };
+    for (const key of Object.keys(fallback) as (keyof T)[]) {
+        const value = parsed[key as string];
+        const expected = fallback[key];
+        if (Array.isArray(expected) ? Array.isArray(value) : typeof value === typeof expected) {
+            result[key] = value as T[keyof T];
+        }
+    }
+    return result;
+}
+
 /**
  * 정적 페이지 번역 데이터 조회 (DB 우선, fallback은 하드코딩)
- * @param pageKey - "home" | "about"
- * @param locale - "ko" | "en" | "ja" | "zh"
- * @returns 번역 데이터 객체
+ * 해당 언어가 DB에 없으면 하드코딩된 같은 언어 데이터를 쓴다.
  */
 export function getHomeTranslation(locale: Locale): typeof homeTranslations.ko {
+    const fallback = homeTranslations[locale] || homeTranslations.ko;
     try {
         const dbContent = getStaticPageContent("home", locale);
-        if (dbContent) {
-            return JSON.parse(dbContent.content);
-        }
+        if (dbContent) return mergeWithFallback(fallback, dbContent.content);
     } catch (error) {
         console.warn("Failed to get home translation from DB:", error);
     }
-    return homeTranslations[locale] || homeTranslations.ko;
+    return fallback;
 }
 
 export function getProfileTranslation(locale: Locale): typeof profileTranslations.ko {
+    const fallback = profileTranslations[locale] || profileTranslations.ko;
     try {
         const dbContent = getStaticPageContent("about", locale);
-        if (dbContent) {
-            return JSON.parse(dbContent.content);
-        }
+        if (dbContent) return mergeWithFallback(fallback, dbContent.content);
     } catch (error) {
         console.warn("Failed to get about translation from DB:", error);
     }
-    return profileTranslations[locale] || profileTranslations.ko;
+    return fallback;
 }

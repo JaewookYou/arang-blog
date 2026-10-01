@@ -34,11 +34,12 @@ export function Comments({ postSlug, postType = "post" }: CommentsProps) {
     const [newComment, setNewComment] = useState({ author: "", content: "" });
     const [replyTo, setReplyTo] = useState<number | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     // 댓글 불러오기
     const fetchComments = useCallback(async () => {
         try {
-            const res = await fetch(`/api/comments?slug=${postSlug}&type=${postType}`);
+            const res = await fetch(`/api/comments?slug=${encodeURIComponent(postSlug)}&type=${postType}`);
             const data = await res.json();
             setComments(data.comments || []);
         } catch (error) {
@@ -61,6 +62,7 @@ export function Comments({ postSlug, postType = "post" }: CommentsProps) {
         }
 
         setIsSubmitting(true);
+        setError(null);
 
         try {
             const res = await fetch("/api/comments", {
@@ -79,13 +81,20 @@ export function Comments({ postSlug, postType = "post" }: CommentsProps) {
                 setNewComment({ author: "", content: "" });
                 setReplyTo(null);
                 await fetchComments();
+            } else {
+                setError(t(res.status === 429 ? "comments.ratelimit" : "comments.error", locale));
             }
-        } catch (error) {
-            console.error("Failed to post comment:", error);
+        } catch (err) {
+            console.error("Failed to post comment:", err);
+            setError(t("comments.error", locale));
         } finally {
             setIsSubmitting(false);
         }
     };
+
+    const countAll = (list: Comment[]): number =>
+        list.reduce((sum, c) => sum + 1 + countAll(c.replies || []), 0);
+    const totalCount = countAll(comments);
 
     // 댓글 렌더링 (재귀)
     const renderComment = (comment: Comment, depth: number = 0) => (
@@ -166,7 +175,7 @@ export function Comments({ postSlug, postType = "post" }: CommentsProps) {
         <section id="comments" className="mt-12 pt-8 border-t border-border">
             <h2 id="comments-heading" className="flex items-center gap-2 text-xl font-semibold mb-6">
                 <MessageSquare className="w-5 h-5" />
-                {t("comments.title", locale)} {comments.length > 0 && `(${comments.length})`}
+                {t("comments.title", locale)} {totalCount > 0 && `(${totalCount})`}
             </h2>
 
             {/* 새 댓글 폼 */}
@@ -194,6 +203,12 @@ export function Comments({ postSlug, postType = "post" }: CommentsProps) {
                         {isSubmitting ? t("comments.submitting", locale) : t("comments.submit", locale)}
                     </Button>
                 </form>
+            )}
+
+            {error && (
+                <p role="alert" className="mb-6 text-sm text-red-500">
+                    {error}
+                </p>
             )}
 
             {/* 댓글 목록 */}

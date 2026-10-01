@@ -1,34 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Locale } from "@/lib/i18n";
+import { useEffect, useState } from "react";
+import { normalizeLocale, type Locale } from "@/lib/i18n";
+import { useServerLocale } from "@/components/locale-provider";
 
 /**
  * useLocale Hook
- * 클라이언트에서 현재 로케일을 가져오고 변경을 감지
+ * 서버가 내려준 언어로 시작하고, 언어 전환 이벤트를 따라간다.
  */
 export function useLocale(): Locale {
-    const [locale, setLocale] = useState<Locale>("ko");
+    const serverLocale = useServerLocale();
+    const [locale, setLocale] = useState<Locale>(serverLocale);
 
     useEffect(() => {
-        // 초기 로케일 설정
-        const getLocale = () => {
-            const match = document.cookie.match(/locale=(\w+)/);
-            return (match?.[1] as Locale) || "ko";
+        setLocale(serverLocale);
+    }, [serverLocale]);
+
+    useEffect(() => {
+        const handleLocaleChange = (e: Event) => {
+            setLocale(normalizeLocale((e as CustomEvent<{ locale: string }>).detail?.locale));
         };
-
-        setLocale(getLocale());
-
-        // localeChange 이벤트 리스너
-        const handleLocaleChange = (e: CustomEvent<{ locale: Locale }>) => {
-            setLocale(e.detail.locale);
-        };
-
-        window.addEventListener("localeChange", handleLocaleChange as EventListener);
-
-        return () => {
-            window.removeEventListener("localeChange", handleLocaleChange as EventListener);
-        };
+        window.addEventListener("localeChange", handleLocaleChange);
+        return () => window.removeEventListener("localeChange", handleLocaleChange);
     }, []);
 
     return locale;

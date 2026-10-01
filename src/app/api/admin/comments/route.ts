@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin-auth";
 import { getDatabase, deleteComment } from "@/lib/db";
 
 /**
@@ -8,14 +8,12 @@ import { getDatabase, deleteComment } from "@/lib/db";
  */
 
 export async function GET(request: NextRequest) {
-    const session = await auth();
-    if (!session) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const denied = await requireAdmin();
+    if (denied) return denied;
 
     try {
         const { searchParams } = new URL(request.url);
-        const limit = parseInt(searchParams.get("limit") || "50");
+        const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "50", 10) || 50, 1), 500);
 
         const db = getDatabase();
         const comments = db
@@ -38,10 +36,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-    const session = await auth();
-    if (!session) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const denied = await requireAdmin();
+    if (denied) return denied;
 
     try {
         const { searchParams } = new URL(request.url);

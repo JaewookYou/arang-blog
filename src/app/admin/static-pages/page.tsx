@@ -21,6 +21,25 @@ const localeNames: Record<Locale, string> = {
     zh: "🇨🇳 中文",
 };
 
+const LOCALE_LABEL: Record<string, string> = { en: "영어", ja: "일본어", zh: "중국어" };
+
+function describeResult(
+    data: { translated?: string[]; failed?: { locale: string; error: string }[] },
+    translatedExpected: boolean
+): { type: "success" | "error"; text: string } {
+    if (!translatedExpected) return { type: "success", text: "저장 완료!" };
+    const ok = (data.translated || []).map((l) => LOCALE_LABEL[l] || l);
+    const failed = data.failed || [];
+    if (failed.length === 0) {
+        return { type: "success", text: `저장 완료! 번역도 갱신했습니다 (${ok.join(", ")}).` };
+    }
+    const failedText = failed.map((f) => `${LOCALE_LABEL[f.locale] || f.locale}: ${f.error}`).join(" / ");
+    return {
+        type: "error",
+        text: `한국어는 저장했지만 번역 일부가 실패했습니다.${ok.length ? ` 성공: ${ok.join(", ")}.` : ""} 실패 — ${failedText}`,
+    };
+}
+
 export default function StaticPagesAdmin() {
     const [selectedPage, setSelectedPage] = useState<PageType>("home");
     const [selectedLocale, setSelectedLocale] = useState<Locale>("ko");
@@ -35,7 +54,7 @@ export default function StaticPagesAdmin() {
     const loadContent = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`/api/admin/static-pages?page=${selectedPage}`);
+            const res = await fetch(`/api/admin/static-pages?page=${selectedPage}`, { cache: "no-store" });
             const data = await res.json();
 
             const contents: Record<Locale, string> = {} as Record<Locale, string>;
@@ -94,12 +113,7 @@ export default function StaticPagesAdmin() {
             const data = await res.json();
 
             if (res.ok) {
-                setMessage({
-                    type: "success",
-                    text: selectedLocale === "ko"
-                        ? "저장 완료! 다른 언어로 자동 번역 중..."
-                        : "저장 완료!",
-                });
+                setMessage(describeResult(data, selectedLocale === "ko"));
                 await loadContent(); // 번역 결과 다시 불러오기
             } else {
                 setMessage({ type: "error", text: data.error || "저장 실패" });
@@ -112,6 +126,26 @@ export default function StaticPagesAdmin() {
             }
         }
 
+        setSaving(false);
+    };
+
+    // 저장된 한국어 기준으로 번역만 다시 실행
+    const handleRetranslate = async () => {
+        setSaving(true);
+        setMessage(null);
+        try {
+            const res = await fetch("/api/admin/static-pages", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ page: selectedPage, action: "translate" }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || "번역 실패");
+            setMessage(describeResult(data, true));
+            await loadContent();
+        } catch (error) {
+            setMessage({ type: "error", text: error instanceof Error ? error.message : "번역 실패" });
+        }
         setSaving(false);
     };
 
@@ -221,6 +255,12 @@ export default function StaticPagesAdmin() {
                         <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                         새로고침
                     </Button>
+                    {selectedLocale === "ko" && (
+                        <Button variant="outline" onClick={handleRetranslate} disabled={saving || loading}>
+                            <Globe className="h-4 w-4 mr-2" />
+                            번역만 다시 실행
+                        </Button>
+                    )}
                     {selectedLocale === "ko" && defaultTemplate && (
                         <Button variant="outline" onClick={loadDefaultTemplate}>
                             <Download className="h-4 w-4 mr-2" />

@@ -73,7 +73,9 @@ Git-CMS를 통한 콘텐츠 관리, Gemini AI 기반 다국어 자동 번역, Se
 - 날짜 포맷 로케일라이제이션
 
 ### Phase 10: AI Translation
-- Gemini API 기반 자동 번역
+- Gemini API 기반 자동 번역 (모델 대체 목록·재시도·JSON 모드)
+- 원문 해시로 변경 감지, 서버 시작 시/6시간마다 누락·오래된 번역 자동 생성
+- 블록 단위 분할 번역 + 검증(한국어 잔존, 누락, 플레이스홀더, HTML 태그) — 실패 시 저장하지 않음
 - 코드블록/이미지 보존 (플레이스홀더 패턴)
 - Markdown → HTML 변환 후 DB 저장
 - 번역 관리 Admin 페이지
@@ -96,8 +98,7 @@ arang-blog/
 │   └── uploads/            # 업로드된 파일
 ├── scripts/
 │   ├── deploy.sh           # 배포 스크립트
-│   ├── translate-all-posts.js  # 일괄 번역
-│   └── migrate-translations-to-html.js
+│   └── sync-translations.sh    # 누락/오래된 번역 생성 요청
 ├── src/
 │   ├── app/                # Next.js App Router
 │   │   ├── admin/          # Admin 페이지들
@@ -237,8 +238,8 @@ sudo docker compose down
 # Rebuild after code changes
 git pull && sudo docker compose up -d --build
 
-# Translate all posts
-node scripts/translate-all-posts.js
+# 누락/오래된 번역 생성 요청 (서버가 자동으로도 수행)
+./scripts/sync-translations.sh
 ```
 
 ---
@@ -264,6 +265,9 @@ GITHUB_REPO_NAME=arang-blog
 
 # AI Translation
 GEMINI_API_KEY=<Gemini API Key>
+# GEMINI_MODEL=gemini-3.8-flash          # 선택: 모델 목록 (쉼표 구분)
+# AUTO_TRANSLATE=true                    # 선택: false면 자동 번역 끔
+INTERNAL_API_TOKEN=<openssl rand -hex 32> # 내부 API용
 
 # Optional
 # DB_PATH=/custom/path/to/blog.db
@@ -294,10 +298,24 @@ CREATE TABLE translations (
     locale TEXT NOT NULL,         -- 'en' | 'ja' | 'zh'
     title TEXT NOT NULL,
     description TEXT,
-    content TEXT NOT NULL,        -- HTML
+    content TEXT NOT NULL,        -- 렌더링된 HTML
+    content_md TEXT,              -- 번역 마크다운 원본 (관리자 편집용)
+    source_hash TEXT,             -- 번역 당시 원문 해시 (원문 변경 감지)
+    model TEXT,                   -- 번역 모델 ('manual' = 사람이 수정)
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME,
     UNIQUE(slug, type, locale)
+);
+
+-- 번역 작업 상태 (대기/진행/실패)
+CREATE TABLE translation_jobs (
+    slug TEXT, type TEXT, locale TEXT,
+    status TEXT NOT NULL,         -- 'queued' | 'running' | 'failed'
+    error TEXT,
+    attempts INTEGER DEFAULT 0,
+    source_hash TEXT,
+    updated_at TEXT,
+    PRIMARY KEY (slug, type, locale)
 );
 
 -- 정적 페이지 번역
@@ -323,4 +341,4 @@ CREATE TABLE honeypot_logs (
 
 ---
 
-*Last Updated: 2026-01-18*
+*Last Updated: 2026-10-01*

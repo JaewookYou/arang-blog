@@ -62,7 +62,7 @@ export const HONEYPOT_PATHS: Record<AttackCategory, { paths: string[]; severity:
             // WordPress 스캐너 대상
             "/xmlrpc.php", "/wp-trackback.php",
             // 취약점 스캐너 대상
-            "/cgi-bin", "/.cgi", "/cgi-bin/php",
+            "/cgi-bin", "/cgi-bin/php",
             "/shell.php", "/cmd.php", "/eval.php", "/exec.php",
             "/phpinfo.php", "/info.php", "/test.php", "/debug.php",
             // 클라우드/컨테이너
@@ -113,10 +113,27 @@ export const HONEYPOT_PATHS: Record<AttackCategory, { paths: string[]; severity:
 export const ALL_HONEYPOT_PATHS: string[] = Object.values(HONEYPOT_PATHS)
     .flatMap(rule => rule.paths);
 
+/**
+ * 경로 규칙이 세그먼트 단위로 일치하는지
+ * 예전에는 includes()를 써서 "/v1", "/mysql" 같은 짧은 규칙이 정상 글 주소에도 걸릴 수 있었다.
+ * "/wp-admin"은 "/wp-admin", "/wp-admin/x", "/blog/wp-admin"에는 맞지만 "/wp-admin2"에는 맞지 않는다.
+ */
+export function pathMatchesRule(pathname: string, rule: string): boolean {
+    const path = pathname.toLowerCase();
+    const target = rule.toLowerCase();
+    let index = path.indexOf(target);
+    while (index !== -1) {
+        const next = path[index + target.length];
+        if (next === undefined || next === "/") return true;
+        index = path.indexOf(target, index + 1);
+    }
+    return false;
+}
+
 // 경로에서 카테고리 찾기
 export function getCategoryFromPath(path: string): { category: AttackCategory; severity: Severity } | null {
     for (const [category, rule] of Object.entries(HONEYPOT_PATHS)) {
-        if (rule.paths.some(p => path.startsWith(p) || path.includes(p))) {
+        if (rule.paths.some((p) => pathMatchesRule(path, p))) {
             return { category: category as AttackCategory, severity: rule.severity };
         }
     }
@@ -124,82 +141,47 @@ export function getCategoryFromPath(path: string): { category: AttackCategory; s
 }
 
 // 페이로드 패턴 (OWASP CRS 기반)
+// 예전 규칙은 작은따옴표, #, --, ;단어 만으로도 SQLi/RCE로 판정해서
+// 제목에 '가 들어간 글의 OG 이미지, "C#" 검색 등 정상 요청이 404로 차단되었다.
 export const PAYLOAD_PATTERNS: Record<AttackCategory, RegExp[]> = {
     sqli: [
-        // 기본 SQL Injection
-        /(\%27)|(\')|(\-\-)|(\%23)|(#)/i,
-        /((\%3D)|(=))[^\n]*((\%27)|(\')|(\-\-)|(\%3B)|(;))/i,
-        // UNION SELECT
-        /union\s+(all\s+)?select/i,
-        /select\s+.*\s+from\s+/i,
-        // Boolean-based
-        /\bor\b\s+\d+\s*=\s*\d+/i,
-        /\band\b\s+\d+\s*=\s*\d+/i,
-        // Time-based
-        /sleep\s*\(\s*\d+\s*\)/i,
-        /benchmark\s*\(/i,
-        /waitfor\s+delay/i,
-        // Stacked queries
-        /;\s*(drop|delete|update|insert|create|alter|exec)/i,
+        /\bunion\b[\s\S]{0,40}?\bselect\b/i,
+        /'\s*(or|and)\s+['"\d(]/i,
+        /\b(or|and)\b\s+\d+\s*=\s*\d+/i,
+        /'\s*(--|#|\/\*)/,
+        /\bsleep\s*\(\s*\d+\s*\)/i,
+        /\bbenchmark\s*\(/i,
+        /\bwaitfor\s+delay\b/i,
+        /\bpg_sleep\s*\(/i,
+        /;\s*(drop|delete|update|insert|create|alter|exec|shutdown)\b/i,
+        /\b(information_schema|xp_cmdshell|sysobjects)\b/i,
     ],
     xss: [
-        // Script 태그
-        /<script[^>]*>[\s\S]*?<\/script>/i,
-        /<script[^>]*>/i,
-        // Event handlers
-        /\bon\w+\s*=/i,
-        // JavaScript URI
-        /javascript\s*:/i,
-        /vbscript\s*:/i,
-        /data\s*:/i,
-        // 위험 태그
-        /<iframe[^>]*>/i,
-        /<object[^>]*>/i,
-        /<embed[^>]*>/i,
-        /<img[^>]+onerror/i,
-        /<svg[^>]+onload/i,
-        // 인코딩 우회
-        /&#x?[0-9a-f]+;/i,
+        /<script\b/i,
         /%3cscript/i,
+        /<[a-z][^>]*\bon[a-z]+\s*=/i,
+        /<(iframe|object|embed)\b/i,
+        /\bjavascript\s*:/i,
+        /\bvbscript\s*:/i,
+        /\bdata\s*:\s*text\/html/i,
     ],
     lfi: [
-        // 디렉토리 트래버설
         /\.\.\//,
         /\.\.\\/,
-        /%2e%2e%2f/i,
-        /%2e%2e\//i,
+        /%2e%2e(%2f|\/|%5c)/i,
         /\.\.%2f/i,
-        // 민감 파일
-        /etc\/passwd/i,
-        /etc\/shadow/i,
-        /etc\/hosts/i,
-        /proc\/self/i,
-        /proc\/version/i,
+        /\/etc\/(passwd|shadow|hosts)\b/i,
+        /\/proc\/(self|version)\b/i,
         /windows\/system32/i,
-        /boot\.ini/i,
-        /win\.ini/i,
-        // PHP 래퍼
-        /php:\/\/filter/i,
-        /php:\/\/input/i,
-        /expect:\/\//i,
+        /\b(boot|win)\.ini\b/i,
+        /\bphp:\/\/(filter|input)/i,
+        /\bexpect:\/\//i,
     ],
     rce: [
-        // Log4Shell
-        /\$\{jndi:/i,
-        /\$\{env:/i,
-        /\$\{sys:/i,
-        /\$\{java:/i,
-        // 커맨드 인젝션
-        /;\s*\w+/,
-        /\|\s*\w+/,
-        /`[^`]+`/,
-        /\$\([^)]+\)/,
-        // 위험 함수
-        /\beval\s*\(/i,
-        /\bexec\s*\(/i,
-        /\bsystem\s*\(/i,
-        /\bpassthru\s*\(/i,
-        /\bshell_exec\s*\(/i,
+        /\$\{(jndi|env|sys|java):/i,
+        /\$\([^)]*\b(curl|wget|bash|sh|nc|id|whoami|cat)\b[^)]*\)/i,
+        /[;&|]\s*(cat|ls|id|whoami|uname|wget|curl|bash|sh|nc|ncat|python3?|perl|powershell)\b/i,
+        /\b(passthru|shell_exec|proc_open|popen)\s*\(/i,
     ],
     admin: [],
     config: [],
@@ -213,7 +195,12 @@ export const PAYLOAD_PATTERNS: Record<AttackCategory, RegExp[]> = {
 export function analyzePayload(input: string): { category: AttackCategory; severity: Severity; pattern: string } | null {
     if (!input) return null;
 
-    const decoded = decodeURIComponent(input).replace(/\+/g, " ");
+    let decoded = input;
+    try {
+        decoded = decodeURIComponent(input.replace(/\+/g, " "));
+    } catch {
+        // 잘못된 % 인코딩이면 예외가 나므로 원문 그대로 검사한다
+    }
 
     for (const [category, patterns] of Object.entries(PAYLOAD_PATTERNS)) {
         for (const pattern of patterns) {

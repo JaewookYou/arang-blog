@@ -1,235 +1,66 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { GoogleGenAI } from "@google/genai";
-import { upsertTranslation } from "@/lib/db";
-import { markdownToHtml } from "@/lib/markdown";
+import { requireAdmin } from "@/lib/admin-auth";
+import { isTranslationLocale, TRANSLATION_LOCALES, type TranslationLocale } from "@/lib/i18n";
+import { isValidSlug, normalizeKind, parseFrontmatter } from "@/lib/github";
+import { enqueueTranslations } from "@/lib/translation/service";
 
 /**
- * Admin Translation API
- * Gemini를 사용하여 콘텐츠 번역 후 DB에 저장
- * 코드블럭/이미지를 사전 추출하여 번역 시 보존
+ * Admin Translation API (글쓰기/수정 화면의 "번역 생성" 버튼)
+ * 긴 글은 번역에 몇 분이 걸려 요청이 프록시 타임아웃에 걸리므로
+ * 백그라운드 작업으로 등록하고 바로 응답한다. 진행 상황은 /api/admin/translations 에서 확인한다.
+ *
+ * body: { slug, type, content, title?, description?, targetLocales? }
+ *  - content에 프론트매터가 있으면 거기서 title/description을 읽는다.
  */
-
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-
-interface TranslateRequest {
-    content: string;
-    title: string;
-    description?: string;
-    slug: string;
-    type: "post" | "writeup";
-    targetLocales: ("en" | "ja" | "zh")[];
-}
-
-interface TranslatedContent {
-    title: string;
-    description: string;
-    content: string;
-}
-
-const LANG_NAMES: Record<string, string> = {
-    en: "English",
-    ja: "Japanese",
-    zh: "Simplified Chinese"
-};
-
-/**
- * 코드블럭 추출 및 플레이스홀더로 대체
- */
-function extractCodeBlocks(content: string): { processed: string; codeBlocks: string[] } {
-    const codeBlocks: string[] = [];
-    // 3개 이상의 백틱 + 옵션 언어 + 내용 + 닫는 백틱
-    const codeBlockRegex = /(```[\w-]*\n[\s\S]*?\n```)/g;
-
-    let match;
-    while ((match = codeBlockRegex.exec(content)) !== null) {
-        codeBlocks.push(match[1]);
-    }
-
-    let processed = content;
-    for (let i = 0; i < codeBlocks.length; i++) {
-        processed = processed.replace(codeBlocks[i], `[[CODE_BLOCK_${i}]]`);
-    }
-
-    return { processed, codeBlocks };
-}
-
-function restoreCodeBlocks(content: string, codeBlocks: string[]): string {
-    let restored = content;
-    for (let i = 0; i < codeBlocks.length; i++) {
-        restored = restored.replace(`[[CODE_BLOCK_${i}]]`, codeBlocks[i]);
-    }
-    return restored;
-}
-
-/**
- * 이미지 추출 및 플레이스홀더로 대체
- */
-function extractImages(content: string): { processed: string; images: string[] } {
-    const images: string[] = [];
-    const imageRegex = /(!?\[.*?\]\(.*?\))/g;
-
-    let match;
-    while ((match = imageRegex.exec(content)) !== null) {
-        images.push(match[1]);
-    }
-
-    let processed = content;
-    for (let i = 0; i < images.length; i++) {
-        processed = processed.replace(images[i], `[[IMAGE_${i}]]`);
-    }
-
-    return { processed, images };
-}
-
-function restoreImages(content: string, images: string[]): string {
-    let restored = content;
-    for (let i = 0; i < images.length; i++) {
-        restored = restored.replace(`[[IMAGE_${i}]]`, images[i]);
-    }
-    return restored;
-}
-
 export async function POST(request: NextRequest) {
-    // 인증 확인
-    const session = await auth();
-    if (!session) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    if (!GEMINI_API_KEY) {
-        return NextResponse.json(
-            { error: "GEMINI_API_KEY not configured" },
-            { status: 500 }
-        );
-    }
+    const denied = await requireAdmin();
+    if (denied) return denied;
 
     try {
-        const body: TranslateRequest = await request.json();
-        const { content, title, description, slug, type, targetLocales } = body;
+        const body = await request.json();
+        const slug = body.slug;
+        const kind = normalizeKind(body.type);
+        if (!isValidSlug(slug)) {
+            return NextResponse.json({ error: "슬러그를 먼저 입력하세요." }, { status: 400 });
+        }
+        if (typeof body.content !== "string" || !body.content.trim()) {
+            return NextResponse.json({ error: "번역할 내용이 없습니다." }, { status: 400 });
+        }
 
-        if (!content || !title || !slug || !type || !targetLocales?.length) {
+        let parsed;
+        try {
+            parsed = parseFrontmatter(body.content);
+        } catch (error) {
             return NextResponse.json(
-                { error: "Missing required fields: content, title, slug, type, targetLocales" },
+                { error: `프론트매터 YAML 오류: ${error instanceof Error ? error.message : String(error)}` },
                 { status: 400 }
             );
         }
 
-        const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-
-        const translations: Record<string, TranslatedContent> = {};
-
-        // 1. 코드블럭 추출
-        const { processed: contentNoCode, codeBlocks } = extractCodeBlocks(content);
-
-        // 2. 이미지 추출
-        const { processed: contentClean, images } = extractImages(contentNoCode);
-
-        // 각 언어로 번역
-        for (const locale of targetLocales) {
-            const targetLang = LANG_NAMES[locale] || "English";
-
-            const prompt = `You are a professional technical translator specializing in cybersecurity and software development.
-
-Translate the following Korean blog post to ${targetLang}.
-
-## RULES:
-1. Translate text naturally, not literally.
-2. Keep all placeholders like [[CODE_BLOCK_0]], [[IMAGE_0]] etc. EXACTLY as they are - do NOT translate or modify them.
-3. Do NOT translate any technical terms inside backticks (\`code\`).
-4. Preserve all Markdown formatting (headers ##, lists -, bold **, etc.)
-5. Keep paragraph breaks (empty lines between paragraphs).
-6. Do NOT add any explanations, just output the translation.
-
----
-TITLE: ${title}
-
-DESCRIPTION: ${description || ""}
-
-CONTENT:
-${contentClean}
----
-
-Output format (JSON only, no markdown code blocks):
-{"title": "translated title", "description": "translated description", "content": "translated content with all placeholders preserved"}`;
-
-            const response = await ai.models.generateContent({
-                model: "gemini-3-pro-preview",
-                contents: prompt,
-            });
-
-            const responseText = response.text || "";
-
-            // JSON 파싱 시도
-            try {
-                // JSON 블록에서 ```json ... ``` 제거
-                let jsonStr = responseText;
-                if (jsonStr.includes("```json")) {
-                    jsonStr = jsonStr.replace(/```json\s*/g, "").replace(/```\s*/g, "");
-                } else if (jsonStr.includes("```")) {
-                    jsonStr = jsonStr.replace(/```\s*/g, "");
-                }
-
-                const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                    const parsed = JSON.parse(jsonMatch[0]);
-
-                    let translatedContent = parsed.content || content;
-
-                    // 3. 이미지 복원
-                    translatedContent = restoreImages(translatedContent, images);
-
-                    // 4. 코드블럭 복원
-                    translatedContent = restoreCodeBlocks(translatedContent, codeBlocks);
-
-                    translations[locale] = {
-                        title: parsed.title || title,
-                        description: parsed.description || description || "",
-                        content: translatedContent,
-                    };
-                } else {
-                    // JSON 매칭 실패 시 원본 복원
-                    let fallbackContent = restoreImages(contentClean, images);
-                    fallbackContent = restoreCodeBlocks(fallbackContent, codeBlocks);
-
-                    translations[locale] = {
-                        title: title,
-                        description: description || "",
-                        content: fallbackContent,
-                    };
-                }
-            } catch {
-                // 파싱 실패 시 원본 복원
-                let fallbackContent = restoreImages(contentClean, images);
-                fallbackContent = restoreCodeBlocks(fallbackContent, codeBlocks);
-
-                translations[locale] = {
-                    title: title,
-                    description: description || "",
-                    content: fallbackContent,
-                };
-            }
-
-            // 5. 마크다운을 HTML로 변환 후 DB에 저장
-            const htmlContent = await markdownToHtml(translations[locale].content);
-
-            upsertTranslation(
-                slug,
-                type,
-                locale,
-                translations[locale].title,
-                translations[locale].description,
-                htmlContent
-            );
+        const title = String(parsed.data.title ?? body.title ?? "").trim();
+        const description = String(parsed.data.description ?? body.description ?? "").trim();
+        if (!title) {
+            return NextResponse.json({ error: "제목이 필요합니다." }, { status: 400 });
         }
 
-        return NextResponse.json({
-            success: true,
-            message: `Translated and saved to DB for locales: ${targetLocales.join(", ")}`,
-            translations,
-        });
+        const locales: TranslationLocale[] = Array.isArray(body.targetLocales)
+            ? body.targetLocales.filter(isTranslationLocale)
+            : [...TRANSLATION_LOCALES];
+
+        const { queued } = enqueueTranslations([
+            { type: kind, slug, locales, source: { title, description, markdown: parsed.body }, reason: "manual" },
+        ]);
+
+        return NextResponse.json(
+            {
+                success: true,
+                queued,
+                message: `${queued}개 언어 번역을 시작했습니다. 번역 관리 화면에서 진행 상황을 확인할 수 있습니다.`,
+            },
+            { status: 202 }
+        );
     } catch (error) {
-        console.error("Translation error:", error);
+        console.error("Translation enqueue error:", error);
         return NextResponse.json(
             { error: error instanceof Error ? error.message : "Translation failed" },
             { status: 500 }

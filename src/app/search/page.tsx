@@ -1,10 +1,12 @@
 import { posts, writeups } from "@/.velite";
 import { SearchBox } from "@/components/search-box";
-import { formatDateLocale, t, Locale } from "@/lib/i18n";
+import { formatDateLocale, t } from "@/lib/i18n";
 import Link from "next/link";
 import { FileText, Flag } from "lucide-react";
-import { cookies } from "next/headers";
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { getRequestLocale } from "@/lib/locale-server";
+import { localizedSummary, visibleSorted } from "@/lib/article";
 
 export const metadata: Metadata = {
     title: "Search",
@@ -19,46 +21,54 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     const { q } = await searchParams;
     const query = q || "";
 
-    // 쿠키에서 현재 언어
-    const cookieStore = await cookies();
-    const locale = (cookieStore.get("locale")?.value as Locale) || "ko";
+    const locale = await getRequestLocale();
 
-    // 검색 데이터 준비
+    // 검색 데이터 준비: 화면에는 현재 언어 제목을, 검색에는 원문+번역을 모두 사용
     const searchItems = [
-        ...posts
-            .filter((p) => p.published)
-            .map((p) => ({
-                title: p.title,
+        ...visibleSorted(posts).map((p) => {
+            const summary = localizedSummary("post", p, locale);
+            return {
+                title: summary.title,
                 slug: p.slug,
-                description: p.description,
+                description: summary.description,
                 type: "post" as const,
                 date: p.date,
                 tags: p.tags,
-            })),
-        ...writeups
-            .filter((w) => w.published)
-            .map((w) => ({
-                title: w.title,
+                keywords: `${p.title} ${p.description ?? ""}`,
+            };
+        }),
+        ...visibleSorted(writeups).map((w) => {
+            const summary = localizedSummary("writeup", w, locale);
+            return {
+                title: summary.title,
                 slug: w.slug,
-                description: w.description,
+                description: summary.description,
                 type: "writeup" as const,
                 date: w.date,
                 tags: w.tags,
                 ctf: w.ctf,
                 category: w.category,
-            })),
+                keywords: `${w.title} ${w.description ?? ""}`,
+            };
+        }),
     ];
 
     // 서버 사이드 검색 (초기 결과)
-    const lowerQuery = query.toLowerCase();
-    const results = query
+    const lowerQuery = query.toLowerCase().trim();
+    const results = lowerQuery
         ? searchItems.filter((item) => {
-            const titleMatch = item.title.toLowerCase().includes(lowerQuery);
-            const descMatch = item.description?.toLowerCase().includes(lowerQuery);
-            const tagMatch = item.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
-            const ctfMatch = "ctf" in item && item.ctf?.toLowerCase().includes(lowerQuery);
-            const categoryMatch = "category" in item && item.category?.toLowerCase().includes(lowerQuery);
-            return titleMatch || descMatch || tagMatch || ctfMatch || categoryMatch;
+            const haystack = [
+                item.title,
+                item.description,
+                item.keywords,
+                ...item.tags,
+                "ctf" in item ? item.ctf : "",
+                "category" in item ? item.category : "",
+            ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase();
+            return haystack.includes(lowerQuery);
         })
         : [];
 
@@ -70,14 +80,16 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             </div>
 
             {/* 검색 박스 */}
-            <SearchBox items={searchItems} />
+            <Suspense fallback={null}>
+                <SearchBox items={searchItems} />
+            </Suspense>
 
             {/* 검색 결과 */}
             {query && (
                 <div className="space-y-4">
                     <p className="text-muted-foreground">
                         &quot;{query}&quot; {t("search.results", locale)}: {results.length}
-                        {locale === "ko" ? "건" : locale === "ja" ? "" : locale === "zh" ? "" : ""}
+                        {locale === "ko" ? "건" : ""}
                     </p>
 
                     {results.length > 0 ? (

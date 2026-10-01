@@ -19,6 +19,8 @@ interface SearchItem {
     // writeup specific
     ctf?: string;
     category?: string;
+    // 원문 제목/설명 등 추가 검색어
+    keywords?: string;
 }
 
 interface SearchBoxProps {
@@ -52,8 +54,9 @@ export function SearchBox({ items }: SearchBoxProps) {
                 const tagMatch = item.tags.some((tag) => tag.toLowerCase().includes(lowerQuery));
                 const ctfMatch = item.ctf?.toLowerCase().includes(lowerQuery);
                 const categoryMatch = item.category?.toLowerCase().includes(lowerQuery);
+                const keywordMatch = item.keywords?.toLowerCase().includes(lowerQuery);
 
-                return titleMatch || descMatch || tagMatch || ctfMatch || categoryMatch;
+                return titleMatch || descMatch || tagMatch || ctfMatch || categoryMatch || keywordMatch;
             });
 
             setResults(filtered);

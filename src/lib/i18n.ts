@@ -15,6 +15,39 @@ export const LOCALE_NAMES: Record<Locale, string> = {
 
 export const DEFAULT_LOCALE: Locale = "ko";
 
+/** 원문(ko)을 제외한 번역 대상 언어 */
+export const TRANSLATION_LOCALES = ["en", "ja", "zh"] as const;
+export type TranslationLocale = (typeof TRANSLATION_LOCALES)[number];
+
+/** <html lang> 값 */
+export const HTML_LANG: Record<Locale, string> = {
+    ko: "ko",
+    en: "en",
+    ja: "ja",
+    zh: "zh-CN",
+};
+
+/** Open Graph locale 값 */
+export const OG_LOCALE: Record<Locale, string> = {
+    ko: "ko_KR",
+    en: "en_US",
+    ja: "ja_JP",
+    zh: "zh_CN",
+};
+
+export function isLocale(value: unknown): value is Locale {
+    return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
+}
+
+export function isTranslationLocale(value: unknown): value is TranslationLocale {
+    return typeof value === "string" && (TRANSLATION_LOCALES as readonly string[]).includes(value);
+}
+
+/** 알 수 없는 값은 기본 언어(ko)로 정규화 */
+export function normalizeLocale(value: string | null | undefined): Locale {
+    return isLocale(value) ? value : DEFAULT_LOCALE;
+}
+
 // 번역 사전
 const translations: Record<Locale, Record<string, string>> = {
     ko: {
@@ -58,6 +91,21 @@ const translations: Record<Locale, Record<string, string>> = {
         "theme.dark": "다크 모드",
         "theme.system": "시스템 설정",
         "theme.toggle": "테마 변경",
+        // 번역 안내
+        "translated.notice": "",
+        "translated.viewOriginal": "원문 보기",
+        "translated.stale": "",
+        "translated.unavailable": "",
+
+        // 코드 블록
+        "code.copy": "코드 복사",
+        "code.copied": "복사됨!",
+        "code.wrap": "줄바꿈 모드",
+        "code.scroll": "스크롤 모드",
+
+        // 댓글 오류
+        "comments.error": "댓글 작성에 실패했습니다.",
+        "comments.ratelimit": "댓글을 너무 자주 작성했습니다. 잠시 후 다시 시도해주세요.",
     },
     en: {
         "language": "Language",
@@ -89,6 +137,16 @@ const translations: Record<Locale, Record<string, string>> = {
         "theme.dark": "Dark Mode",
         "theme.system": "System",
         "theme.toggle": "Toggle theme",
+        "translated.notice": "This post was machine-translated from Korean by AI. Some expressions may differ from the original.",
+        "translated.viewOriginal": "Read the original (Korean)",
+        "translated.stale": "The original post was updated after this translation. The translation will be refreshed shortly.",
+        "translated.unavailable": "A translation is not available yet, so the original Korean post is shown.",
+        "code.copy": "Copy code",
+        "code.copied": "Copied!",
+        "code.wrap": "Wrap lines",
+        "code.scroll": "Scroll horizontally",
+        "comments.error": "Failed to post your comment.",
+        "comments.ratelimit": "You are commenting too often. Please try again later.",
     },
     ja: {
         "language": "言語",
@@ -120,6 +178,16 @@ const translations: Record<Locale, Record<string, string>> = {
         "theme.dark": "ダークモード",
         "theme.system": "システム設定",
         "theme.toggle": "テーマ切替",
+        "translated.notice": "この記事はAIによって韓国語から機械翻訳されています。原文と表現が異なる場合があります。",
+        "translated.viewOriginal": "原文（韓国語）を読む",
+        "translated.stale": "この翻訳の作成後に原文が更新されました。翻訳はまもなく更新されます。",
+        "translated.unavailable": "翻訳がまだないため、韓国語の原文を表示しています。",
+        "code.copy": "コードをコピー",
+        "code.copied": "コピーしました",
+        "code.wrap": "折り返して表示",
+        "code.scroll": "横スクロールで表示",
+        "comments.error": "コメントの投稿に失敗しました。",
+        "comments.ratelimit": "コメントの投稿が多すぎます。しばらくしてから再度お試しください。",
     },
     zh: {
         "language": "语言",
@@ -151,6 +219,16 @@ const translations: Record<Locale, Record<string, string>> = {
         "theme.dark": "深色模式",
         "theme.system": "跟随系统",
         "theme.toggle": "切换主题",
+        "translated.notice": "本文由 AI 从韩语机器翻译，部分表达可能与原文有所不同。",
+        "translated.viewOriginal": "阅读原文（韩语）",
+        "translated.stale": "原文在本译文生成后已更新，译文将很快刷新。",
+        "translated.unavailable": "本文暂无译文，因此显示韩语原文。",
+        "code.copy": "复制代码",
+        "code.copied": "已复制",
+        "code.wrap": "自动换行",
+        "code.scroll": "横向滚动",
+        "comments.error": "评论发表失败。",
+        "comments.ratelimit": "评论过于频繁，请稍后再试。",
     },
 };
 
@@ -158,14 +236,18 @@ const translations: Record<Locale, Record<string, string>> = {
  * 번역 텍스트 가져오기
  */
 export function t(key: string, locale: Locale = "ko"): string {
-    return translations[locale]?.[key] || translations.ko[key] || key;
+    const value = translations[locale]?.[key] ?? translations.ko[key];
+    return value ?? key;
 }
 
 /**
  * 날짜 포맷팅 (로케일 기반)
  */
 export function formatDateLocale(date: Date | string, locale: Locale = "ko"): string {
-    const d = typeof date === "string" ? new Date(date) : date;
+    // SQLite datetime('now')는 "YYYY-MM-DD HH:MM:SS"(UTC) 형식이라 시간대 정보가 없다
+    const d = typeof date === "string"
+        ? new Date(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(date) ? `${date.replace(" ", "T")}Z` : date)
+        : date;
 
     const localeMap: Record<Locale, string> = {
         ko: "ko-KR",
@@ -182,26 +264,6 @@ export function formatDateLocale(date: Date | string, locale: Locale = "ko"): st
 }
 
 /**
- * 브라우저 언어를 감지하여 지원 언어로 매핑
- */
-export function detectLocale(acceptLanguage: string | null): Locale {
-    if (!acceptLanguage) return DEFAULT_LOCALE;
-
-    const languages = acceptLanguage
-        .split(",")
-        .map((lang) => lang.split(";")[0].trim().toLowerCase());
-
-    for (const lang of languages) {
-        if (lang.startsWith("ko")) return "ko";
-        if (lang.startsWith("en")) return "en";
-        if (lang.startsWith("ja")) return "ja";
-        if (lang.startsWith("zh")) return "zh";
-    }
-
-    return DEFAULT_LOCALE;
-}
-
-/**
  * 포스트가 현재 공개 가능한지 확인 (예약 발행 체크)
  */
 export function isPostVisible(post: {
@@ -213,11 +275,4 @@ export function isPostVisible(post: {
     return new Date(post.scheduledAt) <= new Date();
 }
 
-/**
- * 로케일별 URL 생성
- */
-export function getLocalizedPath(path: string, locale: Locale): string {
-    if (locale === DEFAULT_LOCALE) return path;
-    return `/${locale}${path}`;
-}
 

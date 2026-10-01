@@ -1,11 +1,12 @@
 import { posts, writeups } from "@/.velite";
+import { SITE_URL } from "@/lib/site";
+import { isPostVisible } from "@/lib/i18n";
 
 /**
- * RSS Feed 생성
- * Route Handler로 /rss.xml 또는 /feed.xml 제공
+ * RSS Feed 생성 (/rss.xml)
  */
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://blog.arang.kr";
+export const dynamic = "force-dynamic";
 
 function escapeXml(text: string): string {
     return text
@@ -17,40 +18,42 @@ function escapeXml(text: string): string {
 }
 
 export async function GET() {
-    // 모든 콘텐츠 합치고 날짜순 정렬
     const allContent = [
-        ...posts.filter((p) => p.published).map((p) => ({ ...p, type: "post" })),
-        ...writeups.filter((w) => w.published).map((w) => ({ ...w, type: "writeup" })),
+        ...posts.filter((p) => isPostVisible(p)).map((p) => ({ ...p, type: "post" as const })),
+        ...writeups.filter((w) => isPostVisible(w)).map((w) => ({ ...w, type: "writeup" as const })),
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const items = allContent
+        .map((item) => {
+            const link = `${SITE_URL}/${item.type === "post" ? "posts" : "writeups"}/${encodeURIComponent(item.slug)}`;
+            const categories = item.tags.map((tag) => `\n      <category>${escapeXml(tag)}</category>`).join("");
+            return `
+    <item>
+      <title>${escapeXml(item.title)}</title>
+      <link>${link}</link>
+      <guid isPermaLink="true">${link}</guid>
+      <pubDate>${new Date(item.date).toUTCString()}</pubDate>
+      <description>${escapeXml(item.description || item.title)}</description>${categories}
+    </item>`;
+        })
+        .join("");
 
     const feed = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>Arang Tech Blog</title>
-    <link>${baseUrl}</link>
+    <link>${SITE_URL}</link>
     <description>CTF Writeups, Security Research, and Tech Articles by Arang</description>
     <language>ko</language>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
-    <atom:link href="${baseUrl}/rss.xml" rel="self" type="application/rss+xml"/>
-    ${allContent
-            .map(
-                (item) => `
-    <item>
-      <title>${escapeXml(item.title)}</title>
-      <link>${baseUrl}/${item.type === "post" ? "posts" : "writeups"}/${item.slug}</link>
-      <guid isPermaLink="true">${baseUrl}/${item.type === "post" ? "posts" : "writeups"}/${item.slug}</guid>
-      <pubDate>${new Date(item.date).toUTCString()}</pubDate>
-      <description>${escapeXml(item.description || item.title)}</description>
-    </item>`
-            )
-            .join("")}
+    <atom:link href="${SITE_URL}/rss.xml" rel="self" type="application/rss+xml"/>${items}
   </channel>
 </rss>`;
 
     return new Response(feed, {
         headers: {
-            "Content-Type": "application/xml",
-            "Cache-Control": "public, max-age=3600, s-maxage=86400",
+            "Content-Type": "application/rss+xml; charset=utf-8",
+            "Cache-Control": "public, max-age=3600, s-maxage=3600",
         },
     });
 }

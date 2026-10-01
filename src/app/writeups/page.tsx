@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { cookies } from "next/headers";
 import { writeups } from "@/.velite";
-import { formatDateLocale, Locale } from "@/lib/i18n";
+import { formatDateLocale } from "@/lib/i18n";
+import { getRequestLocale } from "@/lib/locale-server";
 import { TagFilter } from "@/components/tag-filter";
-import { writeupsPageTranslations, type Locale as TransLocale } from "@/lib/translations";
-import { getTranslation } from "@/lib/db";
+import { writeupsPageTranslations } from "@/lib/translations";
+import { localizedSummary, visibleSorted } from "@/lib/article";
 
 /**
  * Writeups List Page
@@ -42,15 +42,11 @@ interface WriteupsPageProps {
 export default async function WriteupsPage({ searchParams }: WriteupsPageProps) {
     const { tag, category } = await searchParams;
 
-    // 쿠키에서 현재 언어
-    const cookieStore = await cookies();
-    const locale = (cookieStore.get("locale")?.value as Locale) || "ko";
-    const tr = writeupsPageTranslations[locale as TransLocale] || writeupsPageTranslations.ko;
+    const locale = await getRequestLocale();
+    const tr = writeupsPageTranslations[locale] || writeupsPageTranslations.ko;
 
-    // 발행된 writeup만 필터링 (번역 파일 제외)
-    const publishedWriteups = writeups
-        .filter((w) => w.published && !w.slug.endsWith("-en") && !w.slug.endsWith("-ja") && !w.slug.endsWith("-zh"))
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // 공개된 writeup만 (예약 발행 포함), 날짜 내림차순
+    const publishedWriteups = visibleSorted(writeups);
 
     // 태그/카테고리 필터링
     let filteredWriteups = publishedWriteups;
@@ -67,23 +63,10 @@ export default async function WriteupsPage({ searchParams }: WriteupsPageProps) 
     // 카테고리 목록 (undefined 필터링)
     const categories = [...new Set(publishedWriteups.map((w) => w.category).filter(Boolean))].sort() as string[];
 
-    // 번역된 제목/설명 가져오기
+    // 번역된 제목/설명
     const writeupsWithTranslations = filteredWriteups.map((writeup) => {
-        if (locale !== "ko") {
-            const translation = getTranslation(writeup.slug, "writeup", locale);
-            if (translation) {
-                return {
-                    ...writeup,
-                    displayTitle: translation.title,
-                    displayDescription: translation.description || writeup.description,
-                };
-            }
-        }
-        return {
-            ...writeup,
-            displayTitle: writeup.title,
-            displayDescription: writeup.description,
-        };
+        const summary = localizedSummary("writeup", writeup, locale);
+        return { ...writeup, displayTitle: summary.title, displayDescription: summary.description };
     });
 
     return (
@@ -153,9 +136,11 @@ export default async function WriteupsPage({ searchParams }: WriteupsPageProps) 
                             <div className="space-y-3">
                                 {/* CTF & Category Badge */}
                                 <div className="flex items-center gap-2 text-sm">
-                                    <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
-                                        {writeup.ctf}
-                                    </span>
+                                    {writeup.ctf && (
+                                        <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
+                                            {writeup.ctf}
+                                        </span>
+                                    )}
                                     {writeup.category && (
                                         <span className={`px-2 py-0.5 rounded-full ${category === writeup.category
                                             ? "bg-primary text-primary-foreground"

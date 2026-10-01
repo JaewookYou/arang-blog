@@ -1,72 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { Octokit } from "octokit";
+import { requireAdmin } from "@/lib/admin-auth";
+import { findContentFile, isGitHubConfigured, isValidSlug, normalizeKind } from "@/lib/github";
 
 /**
  * Admin Post Detail API
- * GitHub에서 특정 파일 내용 가져오기
+ * GitHub에서 글 원본(.md/.mdx)을 가져온다.
  */
-
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const REPO_OWNER = process.env.GITHUB_REPO_OWNER || "JaewookYou";
-const REPO_NAME = process.env.GITHUB_REPO_NAME || "arang-blog";
-
-export async function GET(
-    request: NextRequest,
-    { params }: { params: Promise<{ slug: string }> }
-) {
-    const session = await auth();
-    if (!session) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function GET(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
+    const denied = await requireAdmin();
+    if (denied) return denied;
+    if (!isGitHubConfigured()) {
+        return NextResponse.json({ error: "GITHUB_TOKEN이 설정되지 않았습니다." }, { status: 500 });
     }
 
-    if (!GITHUB_TOKEN) {
-        return NextResponse.json({ error: "GitHub token not configured" }, { status: 500 });
+    const { slug: rawSlug } = await params;
+    const slug = decodeURIComponent(rawSlug);
+    if (!isValidSlug(slug)) {
+        return NextResponse.json({ error: "잘못된 slug입니다." }, { status: 400 });
     }
-
-    const { slug } = await params;
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get("type") || "posts";
+    const kind = normalizeKind(new URL(request.url).searchParams.get("type"));
 
     try {
-        const octokit = new Octokit({ auth: GITHUB_TOKEN });
-
-        const baseDir = type === "writeups" ? "content/writeups" : "content/posts";
-
-        // .md 먼저 시도, 없으면 .mdx 시도
-        let path = `${baseDir}/${slug}.md`;
-        let data;
-
-        try {
-            const response = await octokit.rest.repos.getContent({
-                owner: REPO_OWNER,
-                repo: REPO_NAME,
-                path,
-            });
-            data = response.data;
-        } catch {
-            // .md 없으면 .mdx 시도
-            path = `${baseDir}/${slug}.mdx`;
-            const response = await octokit.rest.repos.getContent({
-                owner: REPO_OWNER,
-                repo: REPO_NAME,
-                path,
-            });
-            data = response.data;
+        const file = await findContentFile(kind, slug);
+        if (!file) {
+            return NextResponse.json({ error: "파일을 찾을 수 없습니다." }, { status: 404 });
         }
-
-        if (Array.isArray(data) || !("content" in data)) {
-            return NextResponse.json({ error: "Not a file" }, { status: 400 });
-        }
-
-        const content = Buffer.from(data.content, "base64").toString("utf-8");
-
-        return NextResponse.json({
-            slug,
-            path: data.path,
-            sha: data.sha,
-            content,
-        });
+        return NextResponse.json({ slug, path: file.path, sha: file.sha, content: file.content });
     } catch (error) {
         console.error("Get post error:", error);
         return NextResponse.json(

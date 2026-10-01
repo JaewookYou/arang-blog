@@ -1,14 +1,24 @@
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
 import { posts } from "@/.velite";
-import { formatDateLocale, t, Locale } from "@/lib/i18n";
+import { formatDateLocale, HTML_LANG, isPostVisible, t } from "@/lib/i18n";
+import { getRequestLocale } from "@/lib/locale-server";
 import { ReadingProgress } from "@/components/reading-progress";
 import { TableOfContents } from "@/components/table-of-contents";
 import { PostNavigation } from "@/components/post-navigation";
 import { Comments } from "@/components/comments";
 import { PostLocaleSwitcher } from "@/components/post-locale-switcher";
 import { ContentRenderer } from "@/components/content-renderer";
-import { getTranslation, getAvailableLocales, type Locale as DbLocale } from "@/lib/db";
+import { TranslationNotice } from "@/components/translation-notice";
+import { getAvailableLocales } from "@/lib/db";
+import {
+    articleAlternates,
+    articlePath,
+    localizeArticle,
+    localizedSummary,
+    ogImageUrl,
+    ogLocaleFor,
+    visibleSorted,
+} from "@/lib/article";
 
 /**
  * Post Detail Page
@@ -19,124 +29,60 @@ interface PostPageProps {
     params: Promise<{ slug: string }>;
 }
 
-// 정적 경로 생성 (원본 slug만)
-export async function generateStaticParams() {
-    // locale 접미사가 없는 원본 포스트만 포함
-    return posts
-        .filter((post) => !post.slug.endsWith("-en") && !post.slug.endsWith("-ja") && !post.slug.endsWith("-zh"))
-        .map((post) => ({ slug: post.slug }));
-}
-
-// 동적 메타데이터
-export async function generateMetadata({ params }: PostPageProps) {
-    const { slug: rawSlug } = await params;
+function findPost(rawSlug: string) {
     const slug = decodeURIComponent(rawSlug);
     const post = posts.find((p) => p.slug === slug);
+    return post && isPostVisible(post) ? post : null;
+}
 
+export async function generateMetadata({ params }: PostPageProps) {
+    const { slug: rawSlug } = await params;
+    const post = findPost(rawSlug);
     if (!post) {
-        return { title: "Post Not Found" };
+        return { title: "Post Not Found", robots: { index: false } };
     }
 
-    // 쿠키에서 언어 확인
-    const cookieStore = await cookies();
-    const locale = cookieStore.get("locale")?.value as Locale || "ko";
-
-    // 번역이 있으면 번역된 제목/설명 사용
-    let title = post.title;
-    let description = post.description;
-
-    if (locale !== "ko") {
-        const translation = getTranslation(slug, "post", locale);
-        if (translation) {
-            title = translation.title;
-            description = translation.description || post.description;
-        }
-    }
-
-    const ogImageUrl = `/api/og?title=${encodeURIComponent(title)}&type=post&description=${encodeURIComponent(description || "")}`;
+    const locale = await getRequestLocale();
+    const article = localizeArticle("post", post, locale);
+    const image = ogImageUrl("post", article.title, article.description);
 
     return {
-        title,
-        description,
+        title: article.title,
+        description: article.description,
+        alternates: articleAlternates("post", post.slug, locale),
         openGraph: {
-            title,
-            description,
+            title: article.title,
+            description: article.description,
             type: "article",
+            url: articlePath("post", post.slug, article.translated ? locale : undefined),
             publishedTime: post.date,
             tags: post.tags,
-            images: [{ url: ogImageUrl, width: 1200, height: 630, alt: title }],
+            ...ogLocaleFor(article.translated ? locale : "ko"),
+            images: [{ url: image, width: 1200, height: 630, alt: article.title }],
         },
         twitter: {
             card: "summary_large_image",
-            title,
-            description,
-            images: [ogImageUrl],
+            title: article.title,
+            description: article.description,
+            images: [image],
         },
     };
 }
 
 export default async function PostPage({ params }: PostPageProps) {
     const { slug: rawSlug } = await params;
-    const slug = decodeURIComponent(rawSlug);
+    const post = findPost(rawSlug);
+    if (!post) notFound();
 
-    // 날짜순 정렬된 포스트 목록 (번역 파일 제외)
-    const sortedPosts = posts
-        .filter((p) => p.published && !p.slug.endsWith("-en") && !p.slug.endsWith("-ja") && !p.slug.endsWith("-zh"))
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const locale = await getRequestLocale();
+    const article = localizeArticle("post", post, locale);
+    const availableLocales = getAvailableLocales(post.slug, "post");
 
-    const currentIndex = sortedPosts.findIndex((p) => p.slug === slug);
-    const post = sortedPosts[currentIndex];
-
-    if (!post) {
-        notFound();
-    }
-
-    // 쿠키에서 현재 언어 확인
-    const cookieStore = await cookies();
-    const currentLocale = (cookieStore.get("locale")?.value as Locale) || "ko";
-
-    // 사용 가능한 번역 언어 조회
-    const availableLocales = getAvailableLocales(slug, "post");
-
-    // 번역 데이터 조회
-    let displayTitle = post.title;
-    let displayDescription = post.description;
-    let displayContent = post.body;
-    let isTranslated = false;
-
-    if (currentLocale !== "ko") {
-        const translation = getTranslation(slug, "post", currentLocale);
-        if (translation) {
-            displayTitle = translation.title;
-            displayDescription = translation.description || post.description;
-            // DB에 이미 HTML로 저장되어 있음 (번역 스크립트에서 변환)
-            displayContent = translation.content;
-            isTranslated = true;
-        }
-    }
-
-    // 이전/다음 포스트 (날짜순) - 번역된 제목 가져오기
+    // 이전/다음 포스트 (날짜순)
+    const sortedPosts = visibleSorted(posts);
+    const currentIndex = sortedPosts.findIndex((p) => p.slug === post.slug);
     const prevPost = sortedPosts[currentIndex + 1];
     const nextPost = sortedPosts[currentIndex - 1];
-
-    // 이전/다음 글 제목 번역
-    let prevPostTitle = prevPost?.title;
-    let nextPostTitle = nextPost?.title;
-
-    if (currentLocale !== "ko") {
-        if (prevPost) {
-            const prevTranslation = getTranslation(prevPost.slug, "post", currentLocale);
-            if (prevTranslation) {
-                prevPostTitle = prevTranslation.title;
-            }
-        }
-        if (nextPost) {
-            const nextTranslation = getTranslation(nextPost.slug, "post", currentLocale);
-            if (nextTranslation) {
-                nextPostTitle = nextTranslation.title;
-            }
-        }
-    }
 
     return (
         <>
@@ -144,62 +90,45 @@ export default async function PostPage({ params }: PostPageProps) {
             <TableOfContents />
 
             <article className="max-w-3xl mx-auto">
-                {/* 언어 선택 */}
-                <PostLocaleSwitcher
-                    availableLocales={availableLocales}
-                    currentLocale={currentLocale}
-                />
+                <PostLocaleSwitcher availableLocales={availableLocales} currentLocale={locale} />
 
-                {/* Header */}
                 <header className="mb-8 space-y-4">
-                    <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                        {displayTitle}
-                    </h1>
+                    <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{article.title}</h1>
 
-                    {displayDescription && (
-                        <p className="text-lg text-muted-foreground">
-                            {displayDescription}
-                        </p>
-                    )}
+                    {article.description && <p className="text-lg text-muted-foreground">{article.description}</p>}
 
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground border-b border-border pb-4">
-                        <time dateTime={post.date}>{formatDateLocale(post.date, currentLocale as Locale)}</time>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground border-b border-border pb-4">
+                        <time dateTime={post.date}>{formatDateLocale(post.date, locale)}</time>
 
                         {post.tags.length > 0 && (
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2">
                                 {post.tags.map((tag) => (
-                                    <span
-                                        key={tag}
-                                        className="px-2 py-0.5 bg-muted rounded-full text-xs"
-                                    >
+                                    <span key={tag} className="px-2 py-0.5 bg-muted rounded-full text-xs">
                                         #{tag}
                                     </span>
                                 ))}
                             </div>
                         )}
 
-                        {isTranslated && (
-                            <span className="text-xs text-blue-500">
-                                🌐 {t("translated", currentLocale as Locale)}
-                            </span>
+                        {article.translated && (
+                            <span className="text-xs text-blue-500">🌐 {t("translated", locale)}</span>
                         )}
                     </div>
                 </header>
 
-                {/* Content */}
-                <div className="prose prose-zinc dark:prose-invert max-w-none">
-                    <ContentRenderer content={displayContent} />
+                <TranslationNotice article={article} locale={locale} originalHref={articlePath("post", post.slug, "ko") + "?lang=ko"} />
+
+                <div className="prose prose-zinc dark:prose-invert max-w-none" lang={HTML_LANG[article.translated ? locale : "ko"]}>
+                    <ContentRenderer content={article.html} locale={locale} />
                 </div>
 
-                {/* Navigation */}
                 <PostNavigation
                     basePath="/posts"
-                    prevPost={prevPost ? { slug: prevPost.slug, title: prevPostTitle || prevPost.title } : undefined}
-                    nextPost={nextPost ? { slug: nextPost.slug, title: nextPostTitle || nextPost.title } : undefined}
+                    prevPost={prevPost ? { slug: prevPost.slug, title: localizedSummary("post", prevPost, locale).title } : undefined}
+                    nextPost={nextPost ? { slug: nextPost.slug, title: localizedSummary("post", nextPost, locale).title } : undefined}
                 />
 
-                {/* Comments */}
-                <Comments postSlug={slug} postType="post" />
+                <Comments postSlug={post.slug} postType="post" />
             </article>
         </>
     );

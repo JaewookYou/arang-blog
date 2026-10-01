@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { cookies } from "next/headers";
 import { posts } from "@/.velite";
-import { formatDateLocale, isPostVisible, Locale } from "@/lib/i18n";
+import { formatDateLocale } from "@/lib/i18n";
+import { getRequestLocale } from "@/lib/locale-server";
 import { TagFilter } from "@/components/tag-filter";
-import { postsPageTranslations, type Locale as TransLocale } from "@/lib/translations";
-import { getTranslation } from "@/lib/db";
+import { postsPageTranslations } from "@/lib/translations";
+import { localizedSummary, visibleSorted } from "@/lib/article";
 
 /**
  * Posts List Page
@@ -24,41 +24,22 @@ interface PostsPageProps {
 export default async function PostsPage({ searchParams }: PostsPageProps) {
     const { tag } = await searchParams;
 
-    // 쿠키에서 현재 언어
-    const cookieStore = await cookies();
-    const locale = (cookieStore.get("locale")?.value as Locale) || "ko";
-    const tr = postsPageTranslations[locale as TransLocale] || postsPageTranslations.ko;
+    const locale = await getRequestLocale();
+    const tr = postsPageTranslations[locale] || postsPageTranslations.ko;
 
-    // 발행된 포스트만 필터링 (번역 파일 제외)
-    const publishedPosts = posts
-        .filter((post) => isPostVisible(post) && !post.slug.endsWith("-en") && !post.slug.endsWith("-ja") && !post.slug.endsWith("-zh"))
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // 공개된 포스트만 (예약 발행 포함), 날짜 내림차순
+    const publishedPosts = visibleSorted(posts);
 
     // 태그 필터링
-    const filteredPosts = tag
-        ? publishedPosts.filter((post) => post.tags.includes(tag))
-        : publishedPosts;
+    const filteredPosts = tag ? publishedPosts.filter((post) => post.tags.includes(tag)) : publishedPosts;
 
     // 모든 태그 수집
     const allTags = publishedPosts.flatMap((post) => post.tags);
 
-    // 번역된 제목/설명 가져오기
+    // 번역된 제목/설명
     const postsWithTranslations = filteredPosts.map((post) => {
-        if (locale !== "ko") {
-            const translation = getTranslation(post.slug, "post", locale);
-            if (translation) {
-                return {
-                    ...post,
-                    displayTitle: translation.title,
-                    displayDescription: translation.description || post.description,
-                };
-            }
-        }
-        return {
-            ...post,
-            displayTitle: post.title,
-            displayDescription: post.description,
-        };
+        const summary = localizedSummary("post", post, locale);
+        return { ...post, displayTitle: summary.title, displayDescription: summary.description };
     });
 
     return (

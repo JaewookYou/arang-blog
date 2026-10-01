@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { getProfileTranslation, type Locale } from "@/lib/translations";
+import { getProfileTranslation } from "@/lib/translations";
+import { getRequestLocale } from "@/lib/locale-server";
 
 /**
  * About Page
@@ -14,8 +14,7 @@ export const metadata = {
 };
 
 export default async function AboutPage() {
-    const cookieStore = await cookies();
-    const locale = (cookieStore.get("locale")?.value as Locale) || "ko";
+    const locale = await getRequestLocale();
     const t = getProfileTranslation(locale);
 
     return (

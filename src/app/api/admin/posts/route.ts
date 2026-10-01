@@ -1,53 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { Octokit } from "octokit";
+import { requireAdmin } from "@/lib/admin-auth";
+import { isGitHubConfigured, listContentFiles, normalizeKind } from "@/lib/github";
+import { getSourceItem } from "@/lib/translation/source";
 
 /**
  * Admin Posts List API
- * GitHub에서 posts/writeups 목록 가져오기
+ * GitHub의 content/posts, content/writeups 목록 (배포 전 파일 포함)
  */
-
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const REPO_OWNER = process.env.GITHUB_REPO_OWNER || "JaewookYou";
-const REPO_NAME = process.env.GITHUB_REPO_NAME || "arang-blog";
-
 export async function GET(request: NextRequest) {
-    const session = await auth();
-    if (!session) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const denied = await requireAdmin();
+    if (denied) return denied;
+    if (!isGitHubConfigured()) {
+        return NextResponse.json({ error: "GITHUB_TOKEN이 설정되지 않았습니다." }, { status: 500 });
     }
 
-    if (!GITHUB_TOKEN) {
-        return NextResponse.json({ error: "GitHub token not configured" }, { status: 500 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get("type") || "posts";
+    const kind = normalizeKind(new URL(request.url).searchParams.get("type"));
 
     try {
-        const octokit = new Octokit({ auth: GITHUB_TOKEN });
-
-        const path = type === "writeups" ? "content/writeups" : "content/posts";
-
-        const { data } = await octokit.rest.repos.getContent({
-            owner: REPO_OWNER,
-            repo: REPO_NAME,
-            path,
+        const files = (await listContentFiles(kind)).map((file) => {
+            const deployed = getSourceItem(kind, file.slug);
+            return {
+                ...file,
+                title: deployed?.title ?? null,
+                date: deployed?.date ?? null,
+                deployed: Boolean(deployed),
+            };
         });
-
-        if (!Array.isArray(data)) {
-            return NextResponse.json({ error: "Not a directory" }, { status: 400 });
-        }
-
-        const files = data
-            .filter((file) => file.name.endsWith(".md") || file.name.endsWith(".mdx"))
-            .map((file) => ({
-                name: file.name,
-                slug: file.name.replace(/\.(md|mdx)$/, ""),
-                path: file.path,
-                sha: file.sha,
-            }));
-
+        files.sort((a, b) => (b.date || "9999").localeCompare(a.date || "9999"));
         return NextResponse.json({ files });
     } catch (error) {
         console.error("List posts error:", error);

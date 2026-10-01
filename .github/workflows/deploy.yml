@@ -38,11 +38,13 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             
-            # 2. Docker 이미지 빌드 및 배포
-            echo "🐳 Building and deploying Docker container..."
-            docker compose down --remove-orphans || true
+            # 2. Docker 이미지 빌드 후 교체
+            #    빌드를 먼저 하고 성공했을 때만 컨테이너를 바꾼다.
+            #    (예전에는 down을 먼저 해서 빌드가 실패하면 사이트가 내려간 채로 남았다)
+            echo "🐳 Building Docker image..."
             docker compose build --no-cache
-            docker compose up -d
+            echo "🔁 Replacing container..."
+            docker compose up -d --remove-orphans
             
             # 3. 컨테이너 상태 확인
             echo "🔍 Checking container health..."

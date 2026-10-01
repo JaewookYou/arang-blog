@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
@@ -11,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Globe } from "lucide-react";
 import { t, Locale } from "@/lib/i18n";
+import { applyLocaleSwitch } from "@/lib/locale-client";
 
 /**
  * PostLocaleSwitcher
@@ -31,7 +31,6 @@ interface PostLocaleSwitcherProps {
 }
 
 export function PostLocaleSwitcher({ availableLocales, currentLocale }: PostLocaleSwitcherProps) {
-    const router = useRouter();
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -39,12 +38,11 @@ export function PostLocaleSwitcher({ availableLocales, currentLocale }: PostLoca
     }, []);
 
     const handleLocaleChange = (locale: string) => {
-        // 쿠키 설정
-        document.cookie = `locale=${locale}; path=/; max-age=${60 * 60 * 24 * 365}`;
-        // Custom event dispatch로 LanguageSwitcher에 알림
-        window.dispatchEvent(new CustomEvent("localeChange", { detail: { locale } }));
-        // 전체 페이지 새로고침 (TOC 동기화를 위해 필요)
-        window.location.reload();
+        // 쿠키 설정 + 다른 컴포넌트에 알림 (?lang= 주소면 지운 주소로 이동)
+        if (!applyLocaleSwitch(locale as Locale)) {
+            // 전체 페이지 새로고침 (TOC 동기화를 위해 필요)
+            window.location.reload();
+        }
     };
 
     if (!mounted) {

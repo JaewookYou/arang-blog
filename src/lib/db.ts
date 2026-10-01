@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import fs from "fs";
 import path from "path";
 
 /**
@@ -15,7 +16,6 @@ let db: Database.Database | null = null;
 export function getDatabase(): Database.Database {
     if (!db) {
         // data 디렉토리 생성
-        const fs = require("fs");
         const dir = path.dirname(DB_PATH);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
@@ -86,10 +86,46 @@ export function getDatabase(): Database.Database {
             );
 
             CREATE UNIQUE INDEX IF NOT EXISTS idx_static_pages_unique ON static_pages(page_key, locale);
+
+            -- 번역 작업 상태 (진행 중/실패 기록)
+            CREATE TABLE IF NOT EXISTS translation_jobs (
+                slug TEXT NOT NULL,
+                type TEXT NOT NULL,
+                locale TEXT NOT NULL,
+                status TEXT NOT NULL,
+                error TEXT,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                source_hash TEXT,
+                updated_at TEXT DEFAULT (datetime('now')),
+                PRIMARY KEY (slug, type, locale)
+            );
         `);
+
+        migrate(db);
     }
 
     return db;
+}
+
+/**
+ * 기존 DB에 새 컬럼을 추가하는 마이그레이션
+ * - content_md: 번역 마크다운 원본 (관리자 편집용)
+ * - source_hash: 번역 당시 원문 해시 (원문이 바뀌면 재번역 대상)
+ * - model: 번역에 사용한 모델
+ * ADD COLUMN만 사용하므로 이전 버전 코드와도 호환된다.
+ */
+function migrate(database: Database.Database) {
+    const columns = (database.prepare("PRAGMA table_info(translations)").all() as { name: string }[])
+        .map((c) => c.name);
+    if (!columns.includes("content_md")) {
+        database.exec("ALTER TABLE translations ADD COLUMN content_md TEXT");
+    }
+    if (!columns.includes("source_hash")) {
+        database.exec("ALTER TABLE translations ADD COLUMN source_hash TEXT");
+    }
+    if (!columns.includes("model")) {
+        database.exec("ALTER TABLE translations ADD COLUMN model TEXT");
+    }
 }
 
 export interface Comment {
@@ -163,6 +199,13 @@ export function addComment(
     return db
         .prepare("SELECT * FROM comments WHERE id = ?")
         .get(result.lastInsertRowid) as Comment;
+}
+
+// 댓글 단건 조회
+export function getCommentById(commentId: number): Comment | null {
+    const db = getDatabase();
+    const row = db.prepare("SELECT * FROM comments WHERE id = ?").get(commentId) as Comment | undefined;
+    return row || null;
 }
 
 // 댓글 삭제 (soft delete)
@@ -325,7 +368,10 @@ export interface Translation {
     locale: string;
     title: string;
     description: string | null;
-    content: string;
+    content: string; // 렌더링된 HTML
+    content_md: string | null; // 번역 마크다운 원본
+    source_hash: string | null; // 번역 당시 원문 해시
+    model: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -335,42 +381,66 @@ export type Locale = "ko" | "en" | "ja" | "zh";
 // 번역 조회
 export function getTranslation(slug: string, type: string, locale: string): Translation | null {
     const db = getDatabase();
-    return db
+    const row = db
         .prepare("SELECT * FROM translations WHERE slug = ? AND type = ? AND locale = ?")
-        .get(slug, type, locale) as Translation | null;
+        .get(slug, type, locale) as Translation | undefined;
+    return row || null;
 }
 
 // 특정 글의 모든 번역 조회
 export function getAllTranslations(slug: string, type: string): Translation[] {
     const db = getDatabase();
     return db
-        .prepare("SELECT * FROM translations WHERE slug = ? AND type = ?")
+        .prepare("SELECT * FROM translations WHERE slug = ? AND type = ? ORDER BY locale")
         .all(slug, type) as Translation[];
 }
 
+// 전체 번역 조회 (관리자 상태 화면용)
+export function listTranslations(): Translation[] {
+    const db = getDatabase();
+    return db.prepare("SELECT * FROM translations ORDER BY type, slug, locale").all() as Translation[];
+}
+
+export interface SaveTranslationInput {
+    slug: string;
+    type: string;
+    locale: string;
+    title: string;
+    description: string | null;
+    content: string; // HTML
+    contentMd?: string | null;
+    sourceHash?: string | null;
+    model?: string | null;
+}
+
 // 번역 추가/업데이트 (upsert)
-export function upsertTranslation(
-    slug: string,
-    type: string,
-    locale: string,
-    title: string,
-    description: string | null,
-    content: string
-): Translation {
+export function saveTranslation(input: SaveTranslationInput): Translation {
     const db = getDatabase();
 
-    // UPSERT (INSERT OR REPLACE)
     db.prepare(`
-        INSERT INTO translations (slug, type, locale, title, description, content)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO translations (slug, type, locale, title, description, content, content_md, source_hash, model)
+        VALUES (@slug, @type, @locale, @title, @description, @content, @contentMd, @sourceHash, @model)
         ON CONFLICT(slug, type, locale) DO UPDATE SET
             title = excluded.title,
             description = excluded.description,
             content = excluded.content,
+            content_md = excluded.content_md,
+            source_hash = excluded.source_hash,
+            model = excluded.model,
             updated_at = datetime('now')
-    `).run(slug, type, locale, title, description, content);
+    `).run({
+        slug: input.slug,
+        type: input.type,
+        locale: input.locale,
+        title: input.title,
+        description: input.description ?? null,
+        content: input.content,
+        contentMd: input.contentMd ?? null,
+        sourceHash: input.sourceHash ?? null,
+        model: input.model ?? null,
+    });
 
-    return getTranslation(slug, type, locale)!;
+    return getTranslation(input.slug, input.type, input.locale)!;
 }
 
 // 번역 삭제
@@ -382,12 +452,14 @@ export function deleteTranslation(slug: string, type: string, locale?: string): 
         const result = db
             .prepare("DELETE FROM translations WHERE slug = ? AND type = ? AND locale = ?")
             .run(slug, type, locale);
+        db.prepare("DELETE FROM translation_jobs WHERE slug = ? AND type = ? AND locale = ?").run(slug, type, locale);
         return result.changes;
     } else {
         // 모든 언어 삭제
         const result = db
             .prepare("DELETE FROM translations WHERE slug = ? AND type = ?")
             .run(slug, type);
+        db.prepare("DELETE FROM translation_jobs WHERE slug = ? AND type = ?").run(slug, type);
         return result.changes;
     }
 }
@@ -399,6 +471,76 @@ export function getAvailableLocales(slug: string, type: string): string[] {
         .prepare("SELECT DISTINCT locale FROM translations WHERE slug = ? AND type = ?")
         .all(slug, type) as { locale: string }[];
     return results.map(r => r.locale);
+}
+
+// ============ Translation Jobs ============
+
+export type TranslationJobStatus = "queued" | "running" | "failed";
+
+export interface TranslationJob {
+    slug: string;
+    type: string;
+    locale: string;
+    status: TranslationJobStatus;
+    error: string | null;
+    attempts: number;
+    source_hash: string | null;
+    updated_at: string;
+}
+
+export function listTranslationJobs(): TranslationJob[] {
+    const db = getDatabase();
+    return db.prepare("SELECT * FROM translation_jobs").all() as TranslationJob[];
+}
+
+export interface TranslationJobKey {
+    slug: string;
+    type: string;
+    locale: string;
+}
+
+export function setTranslationJob(
+    { slug, type, locale }: TranslationJobKey,
+    status: TranslationJobStatus,
+    options: { error?: string | null; sourceHash?: string | null; countAttempt?: boolean } = {}
+): void {
+    const db = getDatabase();
+    db.prepare(`
+        INSERT INTO translation_jobs (slug, type, locale, status, error, attempts, source_hash, updated_at)
+        VALUES (@slug, @type, @locale, @status, @error, @attempts, @sourceHash, datetime('now'))
+        ON CONFLICT(slug, type, locale) DO UPDATE SET
+            status = excluded.status,
+            error = excluded.error,
+            -- 원문이 바뀌면 실패 횟수를 새로 센다
+            attempts = CASE
+                WHEN excluded.source_hash IS NOT NULL AND translation_jobs.source_hash IS NOT excluded.source_hash
+                    THEN @attempts
+                ELSE translation_jobs.attempts + @attempts
+            END,
+            source_hash = COALESCE(excluded.source_hash, translation_jobs.source_hash),
+            updated_at = datetime('now')
+    `).run({
+        slug,
+        type,
+        locale,
+        status,
+        error: options.error ?? null,
+        attempts: options.countAttempt ? 1 : 0,
+        sourceHash: options.sourceHash ?? null,
+    });
+}
+
+export function clearTranslationJob({ slug, type, locale }: TranslationJobKey): void {
+    const db = getDatabase();
+    db.prepare("DELETE FROM translation_jobs WHERE slug = ? AND type = ? AND locale = ?").run(slug, type, locale);
+}
+
+/** 서버 재시작 등으로 중단된 작업(queued/running)을 정리 */
+export function resetStaleTranslationJobs(): number {
+    const db = getDatabase();
+    return db
+        .prepare("DELETE FROM translation_jobs WHERE status IN ('queued', 'running')")
+        .run().changes;
 }
 
 // ============ Static Pages ============

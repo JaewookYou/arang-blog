@@ -7,6 +7,7 @@ import {
     getHoneypotLogCount,
     getHoneypotStatsByPath
 } from "@/lib/db";
+import { getTranslationOverview } from "@/lib/translation/service";
 import { Button } from "@/components/ui/button";
 import {
     FileText,
@@ -42,6 +43,10 @@ export default async function AdminPage() {
     const totalComments = getTotalCommentCount();
     const honeypotCount = getHoneypotLogCount();
     const honeypotStats = getHoneypotStatsByPath();
+    const translation = getTranslationOverview();
+    const needsAttention =
+        translation.summary.missing + translation.summary.stale + translation.summary.invalid + translation.summary.failed;
+    const inProgress = translation.summary.queued + translation.summary.running;
 
     return (
         <div className="max-w-4xl mx-auto space-y-8">
@@ -94,6 +99,32 @@ export default async function AdminPage() {
                 />
             </div>
 
+            {/* Translation Status */}
+            <Link
+                href="/admin/translations"
+                className={`block rounded-lg border p-4 transition-colors hover:border-primary ${
+                    needsAttention > 0 || translation.config.pauseReason ? "border-amber-500/40 bg-amber-500/5" : "border-border"
+                }`}
+            >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 font-medium">
+                        <Globe className="h-5 w-5 text-cyan-500" />
+                        번역 상태
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                        최신 {translation.summary.ok}
+                        {needsAttention > 0 && <span className="ml-3 text-amber-500">확인 필요 {needsAttention}</span>}
+                        {inProgress > 0 && <span className="ml-3 text-blue-500">진행 중 {inProgress}</span>}
+                    </div>
+                </div>
+                {!translation.config.geminiConfigured && (
+                    <p className="mt-2 text-sm text-red-500">GEMINI_API_KEY가 없어 자동 번역이 동작하지 않습니다.</p>
+                )}
+                {translation.config.pauseReason && (
+                    <p className="mt-2 text-sm text-red-500">{translation.config.pauseReason}</p>
+                )}
+            </Link>
+
             {/* Quick Actions */}
             <div className="space-y-4">
                 <h2 className="text-xl font-semibold">Quick Actions</h2>
@@ -118,7 +149,7 @@ export default async function AdminPage() {
                         <div>
                             <div className="font-medium">글 관리</div>
                             <div className="text-sm text-muted-foreground">
-                                기존 글 수정
+                                기존 글 수정 및 삭제
                             </div>
                         </div>
                     </Link>
@@ -166,7 +197,7 @@ export default async function AdminPage() {
                         <div>
                             <div className="font-medium">번역 관리</div>
                             <div className="text-sm text-muted-foreground">
-                                게시글 번역 조회 및 삭제
+                                번역 상태 확인, 생성, 수정
                             </div>
                         </div>
                     </Link>

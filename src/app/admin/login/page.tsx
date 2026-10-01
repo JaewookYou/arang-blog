@@ -12,7 +12,16 @@ export const metadata = {
     robots: { index: false, follow: false },
 };
 
-export default function AdminLoginPage() {
+const ERROR_MESSAGES: Record<string, string> = {
+    AccessDenied: "허가되지 않은 GitHub 계정입니다. 관리자 화이트리스트를 확인하세요.",
+    Configuration: "인증 설정 오류입니다. AUTH_SECRET / GitHub OAuth 설정을 확인하세요.",
+    Verification: "로그인 링크가 만료되었습니다. 다시 시도하세요.",
+};
+
+export default async function AdminLoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+    const { error } = await searchParams;
+    const errorMessage = error ? ERROR_MESSAGES[error] || "로그인에 실패했습니다. 다시 시도하세요." : null;
+
     return (
         <div className="min-h-[60vh] flex items-center justify-center">
             <div className="max-w-sm w-full space-y-6 text-center">
@@ -22,6 +31,12 @@ export default function AdminLoginPage() {
                         관리자 전용 페이지입니다.
                     </p>
                 </div>
+
+                {errorMessage && (
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-500">
+                        {errorMessage}
+                    </div>
+                )}
 
                 <form
                     action={async () => {

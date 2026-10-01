@@ -1,107 +1,68 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { createRoot } from "react-dom/client";
-import { CodeBlock } from "@/components/code-block";
+import { createRoot, type Root } from "react-dom/client";
+import { CodeBlockToolbar } from "@/components/code-block";
+import type { Locale } from "@/lib/i18n";
 
 interface ContentRendererProps {
     content: string;
+    locale: Locale;
     className?: string;
+}
+
+function detectLanguage(pre: HTMLPreElement): string {
+    const code = pre.querySelector("code");
+    return (
+        pre.getAttribute("data-language") ||
+        code?.getAttribute("data-language") ||
+        pre.className.match(/language-([\w+-]+)/)?.[1] ||
+        code?.className.match(/language-([\w+-]+)/)?.[1] ||
+        ""
+    );
 }
 
 /**
  * ContentRenderer
- * HTML 콘텐츠를 렌더링하면서 pre 태그를 CodeBlock 컴포넌트로 대체
- * dangerouslySetInnerHTML 대신 사용하여 코드블럭 기능(복사, 줄바꿈 토글) 제공
+ * 본문 HTML을 서버에서 그대로 렌더링한다. (검색엔진·JS 없는 환경에서도 내용이 보임)
+ * 예전에는 브라우저에서 innerHTML로 넣어서 서버 HTML의 본문이 비어 있었다.
+ * 마운트 후 각 <pre>에 복사/줄바꿈 버튼만 붙이고, 정리할 때 원래 구조로 되돌린다.
  */
-export function ContentRenderer({ content, className }: ContentRendererProps) {
+export function ContentRenderer({ content, locale, className }: ContentRendererProps) {
     const containerRef = useRef<HTMLDivElement>(null);
-    const rootsRef = useRef<Map<HTMLElement, ReturnType<typeof createRoot>>>(new Map());
 
     useEffect(() => {
-        if (!containerRef.current) return;
+        const container = containerRef.current;
+        if (!container) return;
 
-        // HTML 콘텐츠 설정
-        containerRef.current.innerHTML = content;
+        const mounted: { root: Root; wrapper: HTMLElement; pre: HTMLPreElement }[] = [];
 
-        // pre 태그 찾아서 CodeBlock으로 대체
-        const preElements = containerRef.current.querySelectorAll("pre");
+        container.querySelectorAll("pre").forEach((pre) => {
+            if (pre.parentElement?.classList.contains("code-block")) return;
 
-        preElements.forEach((pre) => {
-            // 이미 처리된 pre는 스킵
-            if (pre.parentElement?.classList.contains("code-block-wrapper")) return;
-
-            // wrapper div 생성
             const wrapper = document.createElement("div");
-            wrapper.className = "code-block-wrapper";
+            wrapper.className = "code-block group relative";
             pre.parentNode?.insertBefore(wrapper, pre);
+            const toolbar = document.createElement("div");
+            wrapper.appendChild(toolbar);
+            wrapper.appendChild(pre);
 
-            // pre 속성에서 언어 추출 (다양한 위치에서 시도)
-            let language = pre.getAttribute("data-language") || "";
-
-            // code 태그에서 시도
-            if (!language) {
-                const code = pre.querySelector("code");
-                language = code?.getAttribute("data-language") || "";
-            }
-
-            // pre 클래스에서 시도 (language-*)
-            if (!language) {
-                const match = pre.className.match(/language-(\w+)/);
-                language = match ? match[1] : "";
-            }
-
-            // code 클래스에서 시도
-            if (!language) {
-                const code = pre.querySelector("code");
-                const match = code?.className.match(/language-(\w+)/);
-                language = match ? match[1] : "";
-            }
-
-            // parent figure에서 data-language 시도 (rehype-pretty-code 구조)
-            if (!language) {
-                const figure = pre.closest("figure");
-                language = figure?.getAttribute("data-language") || "";
-            }
-
-            // figcaption에서 텍스트 추출 (일부 테마에서 사용)
-            if (!language) {
-                const figure = pre.closest("figure");
-                const caption = figure?.querySelector("figcaption");
-                language = caption?.getAttribute("data-language") || caption?.textContent?.trim() || "";
-            }
-
-            // pre의 내부 HTML 가져오기 (code 태그 포함)
-            const codeContent = pre.innerHTML;
-
-            // React root 생성 및 CodeBlock 렌더링
-            const root = createRoot(wrapper);
-            rootsRef.current.set(wrapper, root);
-
-            // pre.innerHTML에 이미 code 태그가 포함되어 있으므로 그대로 사용
-            root.render(
-                <CodeBlock data-language={language}>
-                    <span dangerouslySetInnerHTML={{ __html: codeContent }} />
-                </CodeBlock>
-            );
-
-            // 원본 pre 제거
-            pre.remove();
+            const root = createRoot(toolbar);
+            root.render(<CodeBlockToolbar pre={pre} language={detectLanguage(pre)} locale={locale} />);
+            mounted.push({ root, wrapper, pre });
         });
 
-        // Cleanup
         return () => {
-            rootsRef.current.forEach((root) => {
-                root.unmount();
-            });
-            rootsRef.current.clear();
+            for (const { root, wrapper, pre } of mounted) {
+                // React 렌더 중 동기 unmount 경고를 피하기 위해 다음 틱에 정리
+                setTimeout(() => root.unmount(), 0);
+                if (wrapper.isConnected) {
+                    wrapper.parentNode?.insertBefore(pre, wrapper);
+                    wrapper.remove();
+                }
+            }
         };
-    }, [content]);
+    }, [content, locale]);
 
-    return (
-        <div
-            ref={containerRef}
-            className={className}
-        />
-    );
+    return <div ref={containerRef} className={className} dangerouslySetInnerHTML={{ __html: content }} />;
 }

@@ -1,256 +1,152 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-    Save,
-    ArrowLeft,
-    Upload,
-    Loader2,
-    Languages,
-    Maximize2,
-    Minimize2,
-    Bold,
-    Italic,
-    Code,
-    Link2,
-    Image,
-    Quote,
-    List,
-} from "lucide-react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, ExternalLink, Languages, Loader2, Maximize2, Minimize2, Save } from "lucide-react";
+import { EditorToolbar, uploadImage } from "@/components/admin/editor-toolbar";
+import { useMarkdownInsert } from "@/components/admin/use-markdown-insert";
 
-// MDX 에디터는 클라이언트 사이드에서만 로드
 const MDEditor = dynamic(() => import("@uiw/react-md-editor"), { ssr: false });
 
 /**
  * Admin Edit Page
- * 기존 글 수정 (Git-CMS) + 이미지 업로드 + 다국어 번역
- * write 페이지와 동일한 기능 제공
+ * 기존 글 수정 (Git-CMS). 원래 파일 경로(.md/.mdx)를 유지해서 커밋한다.
  */
 
-export default function EditPage({ params }: { params: Promise<{ slug: string }> }) {
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const type = searchParams.get("type") || "posts";
+type Notice = { type: "info" | "error" | "success"; text: string; link?: { href: string; label: string } };
 
-    const [slug, setSlug] = useState<string>("");
+export default function EditPage({ params }: { params: Promise<{ slug: string }> }) {
+    const searchParams = useSearchParams();
+    const type = searchParams.get("type") === "writeups" || searchParams.get("type") === "writeup" ? "writeup" : "post";
+
+    const [slug, setSlug] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isTranslating, setIsTranslating] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [content, setContent] = useState("");
+    const [savedContent, setSavedContent] = useState("");
     const [sha, setSha] = useState("");
-    const [extension, setExtension] = useState(".md");
+    const [path, setPath] = useState("");
+    const [notice, setNotice] = useState<Notice | null>(null);
     const editorRef = useRef<HTMLDivElement>(null);
 
-    // 기존 글 로드
+    const insert = useMarkdownInsert(editorRef, content, setContent);
+    const dirty = content !== savedContent;
+
     useEffect(() => {
-        const loadPost = async () => {
-            const { slug: postSlug } = await params;
+        (async () => {
+            const { slug: rawSlug } = await params;
+            const postSlug = decodeURIComponent(rawSlug);
             setSlug(postSlug);
-
             try {
-                const res = await fetch(`/api/admin/posts/${postSlug}?type=${type}`);
+                const res = await fetch(`/api/admin/posts/${encodeURIComponent(postSlug)}?type=${type}`, { cache: "no-store" });
                 const data = await res.json();
-
-                if (res.ok) {
-                    setContent(data.content);
-                    setSha(data.sha);
-                    // path에서 확장자 추출 (예: content/posts/slug.md -> .md)
-                    const ext = data.path?.match(/\.(md|mdx)$/)?.[0] || ".md";
-                    setExtension(ext);
-                } else {
-                    alert(`오류: ${data.error}`);
-                }
-            } catch {
-                alert("파일을 불러올 수 없습니다.");
+                if (!res.ok) throw new Error(data.error || "파일을 불러올 수 없습니다.");
+                setContent(data.content);
+                setSavedContent(data.content);
+                setSha(data.sha);
+                setPath(data.path);
+            } catch (e) {
+                setNotice({ type: "error", text: e instanceof Error ? e.message : "파일을 불러올 수 없습니다." });
             } finally {
                 setIsLoading(false);
             }
-        };
-
-        loadPost();
+        })();
     }, [params, type]);
 
-    // 이미지 업로드 함수
-    const uploadImage = useCallback(async (file: File): Promise<string | null> => {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        try {
-            const res = await fetch("/api/admin/upload", {
-                method: "POST",
-                body: formData,
-            });
-
-            if (!res.ok) {
-                const error = await res.json();
-                alert(`업로드 실패: ${error.error}`);
-                return null;
-            }
-
-            const data = await res.json();
-            return data.url;
-        } catch {
-            alert("업로드 중 오류가 발생했습니다.");
-            return null;
-        }
-    }, []);
-
-    // 클립보드 이미지 붙여넣기 핸들러
+    // 저장하지 않은 변경이 있으면 페이지 이탈 경고
     useEffect(() => {
-        const handlePaste = async (e: ClipboardEvent) => {
-            const items = e.clipboardData?.items;
-            if (!items) return;
-
-            for (const item of items) {
-                if (item.type.startsWith("image/")) {
-                    e.preventDefault();
-                    setIsUploading(true);
-
-                    const file = item.getAsFile();
-                    if (!file) continue;
-
-                    const url = await uploadImage(file);
-                    if (url) {
-                        const imageMarkdown = `![image](${url})`;
-                        setContent((prev) => prev + "\n" + imageMarkdown + "\n");
-                    }
-
-                    setIsUploading(false);
-                    return;
-                }
-            }
+        const handler = (e: BeforeUnloadEvent) => {
+            if (dirty) e.preventDefault();
         };
+        window.addEventListener("beforeunload", handler);
+        return () => window.removeEventListener("beforeunload", handler);
+    }, [dirty]);
 
+    const handleUpload = useCallback(
+        async (file: File) => {
+            setIsUploading(true);
+            try {
+                const url = await uploadImage(file);
+                insert(`\n![${file.name || "image"}](${url})\n`);
+            } catch (e) {
+                setNotice({ type: "error", text: `업로드 실패: ${e instanceof Error ? e.message : ""}` });
+            } finally {
+                setIsUploading(false);
+            }
+        },
+        [insert]
+    );
+
+    // 클립보드 이미지 붙여넣기 → 커서 위치에 삽입
+    useEffect(() => {
         const editor = editorRef.current;
-        if (editor) {
-            editor.addEventListener("paste", handlePaste);
-            return () => editor.removeEventListener("paste", handlePaste);
-        }
-    }, [uploadImage]);
+        if (!editor) return;
+        const handlePaste = (e: ClipboardEvent) => {
+            const item = Array.from(e.clipboardData?.items || []).find((i) => i.type.startsWith("image/"));
+            const file = item?.getAsFile();
+            if (!file) return;
+            e.preventDefault();
+            handleUpload(file);
+        };
+        editor.addEventListener("paste", handlePaste);
+        return () => editor.removeEventListener("paste", handlePaste);
+    }, [handleUpload, isLoading]);
 
-    // 번역 생성
     const handleTranslate = async () => {
-        if (!content) {
-            alert("내용을 먼저 작성해주세요.");
-            return;
-        }
-
-        // frontmatter에서 title 추출
-        const titleMatch = content.match(/^---[\s\S]*?title:\s*["']?(.+?)["']?\s*$/m);
-        const title = titleMatch ? titleMatch[1] : slug;
-
-        // frontmatter에서 description 추출
-        const descMatch = content.match(/^---[\s\S]*?description:\s*["']?(.+?)["']?\s*$/m);
-        const description = descMatch ? descMatch[1] : "";
-
-        // frontmatter 제거하고 body만 추출
-        const bodyMatch = content.match(/^---[\s\S]*?---\n([\s\S]*)$/);
-        const bodyContent = bodyMatch ? bodyMatch[1] : content;
-
-        if (!confirm("영어/일본어/중국어로 번역을 생성합니다. 진행할까요?")) return;
-
+        if (!confirm("현재 편집 중인 내용으로 영어/일본어/중국어 번역을 생성합니다. 진행할까요?")) return;
         setIsTranslating(true);
-
         try {
             const res = await fetch("/api/admin/translate", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    content: bodyContent,  // frontmatter 제거된 body만 전송
-                    title: title,
-                    description: description,
-                    slug: slug,
-                    type: type === "writeups" ? "writeup" : "post",
-                    targetLocales: ["en", "ja", "zh"],
-                }),
+                body: JSON.stringify({ slug, type, content }),
             });
-
             const data = await res.json();
-
-            if (res.ok) {
-                alert(
-                    `✅ 번역 완료! (DB에 저장됨)
-• 영어: ${data.translations.en?.title || "실패"}
-• 일본어: ${data.translations.ja?.title || "실패"}
-• 중국어: ${data.translations.zh?.title || "실패"}
-
-방문자의 언어 설정에 따라 자동으로 표시됩니다.`
-                );
-            } else {
-                alert(`❌ 번역 실패: ${data.error}`);
-            }
-        } catch {
-            alert("❌ 네트워크 오류");
+            if (!res.ok) throw new Error(data.error || "번역 요청 실패");
+            setNotice({ type: "info", text: data.message, link: { href: "/admin/translations", label: "진행 상황 보기" } });
+        } catch (e) {
+            setNotice({ type: "error", text: `❌ ${e instanceof Error ? e.message : "번역 요청 실패"}` });
         } finally {
             setIsTranslating(false);
         }
     };
 
-    // 저장 (GitHub 커밋)
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-
-        if (!content) {
-            alert("내용을 입력하세요.");
+        if (!content.trim()) {
+            setNotice({ type: "error", text: "내용을 입력하세요." });
             return;
         }
-
         setIsSubmitting(true);
-
         try {
-            // 직접 GitHub API로 업데이트
             const response = await fetch("/api/admin/update", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    type: type === "writeups" ? "writeup" : "post",
-                    slug,
-                    content,
-                    sha,
-                    extension,
-                }),
+                body: JSON.stringify({ type, slug, content, sha, path }),
             });
-
             const result = await response.json();
+            if (!response.ok) throw new Error(result.error || "저장 실패");
 
-            if (response.ok) {
-                alert("✅ 수정 완료!");
-                router.push("/admin/manage");
-            } else {
-                alert(`❌ 오류: ${result.error}`);
-            }
-        } catch {
-            alert("❌ 네트워크 오류가 발생했습니다.");
+            if (result.sha) setSha(result.sha);
+            setSavedContent(content);
+            setNotice({
+                type: "success",
+                text: `✅ GitHub에 커밋했습니다. 배포가 끝나면(보통 수 분) 사이트에 반영됩니다.${
+                    result.translationQueued ? ` 번역 ${result.translationQueued}건도 갱신 중입니다.` : ""
+                }`,
+                link: result.translationQueued ? { href: "/admin/translations", label: "번역 진행 상황" } : undefined,
+            });
+        } catch (err) {
+            setNotice({ type: "error", text: `❌ ${err instanceof Error ? err.message : "저장 실패"}` });
         } finally {
             setIsSubmitting(false);
         }
-    };
-
-    // 파일 선택 업로드
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        setIsUploading(true);
-        const url = await uploadImage(file);
-        if (url) {
-            const imageMarkdown = `![${file.name}](${url})`;
-            setContent((prev) => prev + "\n" + imageMarkdown + "\n");
-        }
-        setIsUploading(false);
-        e.target.value = "";
-    };
-
-    // 마크다운 삽입 헬퍼
-    const insertMarkdown = (before: string, after: string = "") => {
-        setContent((prev) => prev + before + after);
     };
 
     if (isLoading) {
@@ -261,190 +157,71 @@ export default function EditPage({ params }: { params: Promise<{ slug: string }>
         );
     }
 
+    const noticeClass = {
+        info: "border-blue-500/30 bg-blue-500/10 text-blue-500",
+        error: "border-red-500/30 bg-red-500/10 text-red-500 whitespace-pre-line",
+        success: "border-green-500/30 bg-green-500/10 text-green-500",
+    };
+
     return (
-        <div
-            className={`mx-auto space-y-6 ${isFullscreen ? "fixed inset-0 z-50 bg-background p-6 overflow-auto" : "max-w-4xl"
-                }`}
-        >
-            <div className="flex items-center justify-between">
+        <div className={`mx-auto space-y-6 ${isFullscreen ? "fixed inset-0 z-50 bg-background p-6 overflow-auto" : "max-w-5xl"}`}>
+            <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <Link href="/admin/manage">
                         <Button variant="ghost" size="icon">
                             <ArrowLeft className="h-5 w-5" />
                         </Button>
                     </Link>
-                    <h1 className="text-2xl font-bold">✏️ 글 수정: {slug}</h1>
+                    <div>
+                        <h1 className="text-2xl font-bold">글 수정: {slug}</h1>
+                        <p className="font-mono text-xs text-muted-foreground">
+                            {path} {dirty && <span className="text-amber-500">· 저장 안 됨</span>}
+                        </p>
+                    </div>
                 </div>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsFullscreen(!isFullscreen)}
-                >
-                    {isFullscreen ? (
-                        <Minimize2 className="h-5 w-5" />
-                    ) : (
-                        <Maximize2 className="h-5 w-5" />
-                    )}
-                </Button>
+                <div className="flex items-center gap-1">
+                    <Link
+                        href={`/${type === "writeup" ? "writeups" : "posts"}/${encodeURIComponent(slug)}`}
+                        target="_blank"
+                        title="글 보기"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                    >
+                        <ExternalLink className="h-5 w-5" />
+                    </Link>
+                    <Button variant="ghost" size="icon" onClick={() => setIsFullscreen(!isFullscreen)}>
+                        {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+                    </Button>
+                </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-                {/* 타입 표시 */}
-                <div>
-                    <label className="text-sm font-medium mb-2 block">타입</label>
-                    <Input value={type === "writeups" ? "Writeup" : "Post"} disabled />
+            {notice && (
+                <div className={`rounded-lg border p-3 text-sm ${noticeClass[notice.type]}`}>
+                    {notice.text}
+                    {notice.link && (
+                        <Link href={notice.link.href} className="ml-2 font-medium underline">
+                            {notice.link.label}
+                        </Link>
+                    )}
                 </div>
+            )}
 
-                {/* Editor Toolbar */}
-                <div className="flex items-center gap-2 flex-wrap p-2 border border-border rounded-lg bg-muted/30">
-                    <div className="flex items-center gap-1">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => insertMarkdown("**", "**")}
-                            title="Bold (Ctrl+B)"
-                        >
-                            <Bold className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => insertMarkdown("*", "*")}
-                            title="Italic (Ctrl+I)"
-                        >
-                            <Italic className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => insertMarkdown("`", "`")}
-                            title="Inline Code"
-                        >
-                            <Code className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => insertMarkdown("[", "](url)")}
-                            title="Link"
-                        >
-                            <Link2 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => insertMarkdown("> ")}
-                            title="Quote"
-                        >
-                            <Quote className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => insertMarkdown("- ")}
-                            title="List"
-                        >
-                            <List className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => insertMarkdown("\n```\n", "\n```\n")}
-                            title="Code Block"
-                        >
-                            {"{ }"}
-                        </Button>
-                    </div>
-
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <EditorToolbar insert={insert} onFileSelected={handleUpload} isUploading={isUploading}>
                     <div className="h-6 w-px bg-border" />
-
-                    <label className="cursor-pointer">
-                        <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleFileUpload}
-                            className="hidden"
-                        />
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            asChild
-                            disabled={isUploading}
-                        >
-                            <span>
-                                {isUploading ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Image className="h-4 w-4" />
-                                )}
-                            </span>
-                        </Button>
-                    </label>
-                    <label className="cursor-pointer">
-                        <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleFileUpload}
-                            className="hidden"
-                        />
-                        <Button type="button" variant="ghost" size="sm" asChild disabled={isUploading}>
-                            <span>
-                                <Upload className="h-4 w-4 mr-1" />
-                                이미지
-                            </span>
-                        </Button>
-                    </label>
-
-                    <div className="h-6 w-px bg-border" />
-
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleTranslate}
-                        disabled={isTranslating}
-                    >
-                        {isTranslating ? (
-                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                        ) : (
-                            <Languages className="h-4 w-4 mr-1" />
-                        )}
+                    <Button type="button" variant="ghost" size="sm" onClick={handleTranslate} disabled={isTranslating}>
+                        {isTranslating ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Languages className="mr-1 h-4 w-4" />}
                         번역 생성
                     </Button>
+                </EditorToolbar>
 
-                    <span className="text-xs text-muted-foreground ml-auto">
-                        Ctrl+V로 이미지 붙여넣기
-                    </span>
-                </div>
-
-                {/* MDX Editor */}
                 <div data-color-mode="dark" ref={editorRef}>
-                    <label className="text-sm font-medium mb-2 block">내용 (MDX - Frontmatter 포함)</label>
-                    <MDEditor
-                        value={content}
-                        onChange={(val) => setContent(val || "")}
-                        height={isFullscreen ? 600 : 500}
-                        preview="live"
-                    />
+                    <label className="text-sm font-medium mb-2 block">내용 (프론트매터 포함 Markdown)</label>
+                    <MDEditor value={content} onChange={(val) => setContent(val || "")} height={isFullscreen ? 700 : 560} preview="live" />
                 </div>
 
-                {/* Submit */}
-                <Button
-                    type="submit"
-                    size="lg"
-                    disabled={isSubmitting || isUploading || isTranslating}
-                    className="w-full"
-                >
+                <Button type="submit" size="lg" disabled={isSubmitting || isUploading || !dirty} className="w-full">
                     <Save className="mr-2 h-5 w-5" />
-                    {isSubmitting ? "수정 중..." : "GitHub에 커밋"}
+                    {isSubmitting ? "커밋 중..." : dirty ? "GitHub에 커밋" : "변경 사항 없음"}
                 </Button>
             </form>
         </div>

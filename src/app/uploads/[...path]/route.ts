@@ -17,8 +17,8 @@ export async function GET(
     const { path: pathSegments } = await params;
     const filePath = path.join(UPLOAD_DIR, ...pathSegments);
 
-    // 보안: 경로 탈출 방지
-    if (!filePath.startsWith(UPLOAD_DIR)) {
+    // 보안: 경로 탈출 방지 (uploads-xxx 같은 형제 디렉터리도 막도록 구분자까지 비교)
+    if (!filePath.startsWith(UPLOAD_DIR + path.sep)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

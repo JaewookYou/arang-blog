@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { useLocale } from "@/hooks/use-locale";
+import { applyLocaleSwitch } from "@/lib/locale-client";
 import { Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,44 +32,24 @@ const LOCALE_INFO: Record<Locale, { flag: string; name: string }> = {
 
 export function LanguageSwitcher() {
     const router = useRouter();
-    const [currentLocale, setCurrentLocale] = useState<Locale>("ko");
+    const locale = useLocale();
+    const [currentLocale, setCurrentLocale] = useState<Locale>(locale as Locale);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
         setMounted(true);
-        // 쿠키에서 현재 언어 읽기
-        const readLocaleFromCookie = () => {
-            const cookies = document.cookie.split("; ");
-            const localeCookie = cookies.find((c) => c.startsWith("locale="));
-            if (localeCookie) {
-                const locale = localeCookie.split("=")[1] as Locale;
-                if (LOCALES.includes(locale)) {
-                    setCurrentLocale(locale);
-                }
-            }
-        };
-
-        readLocaleFromCookie();
-
-        // PostLocaleSwitcher에서 언어 변경 시 동기화
-        const handleLocaleChange = (e: Event) => {
-            const customEvent = e as CustomEvent<{ locale: string }>;
-            const newLocale = customEvent.detail.locale as Locale;
-            if (LOCALES.includes(newLocale)) {
-                setCurrentLocale(newLocale);
-            }
-        };
-
-        window.addEventListener("localeChange", handleLocaleChange);
-        return () => window.removeEventListener("localeChange", handleLocaleChange);
     }, []);
 
+    useEffect(() => {
+        setCurrentLocale(locale as Locale);
+    }, [locale]);
+
     const switchLocale = (newLocale: Locale) => {
-        // 쿠키에 언어 설정 저장
-        document.cookie = `locale=${newLocale}; path=/; max-age=${60 * 60 * 24 * 365}`;
         setCurrentLocale(newLocale);
-        // 페이지 새로고침으로 서버 컴포넌트 재렌더링
-        router.refresh();
+        if (!applyLocaleSwitch(newLocale)) {
+            // 서버 컴포넌트를 새 언어로 다시 렌더링
+            router.refresh();
+        }
     };
 
     if (!mounted) {

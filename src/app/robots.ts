@@ -1,21 +1,19 @@
 import type { MetadataRoute } from "next";
+import { SITE_URL } from "@/lib/site";
 
 /**
  * robots.txt 생성
  * 검색 엔진 크롤러 지침
  */
-
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://blog.arang.kr";
-
 export default function robots(): MetadataRoute.Robots {
     return {
         rules: [
             {
                 userAgent: "*",
-                allow: "/",
-                disallow: ["/api/", "/_next/"],
+                allow: ["/", "/api/og"],
+                disallow: ["/api/", "/admin", "/_next/"],
             },
         ],
-        sitemap: `${baseUrl}/sitemap.xml`,
+        sitemap: `${SITE_URL}/sitemap.xml`,
     };
 }

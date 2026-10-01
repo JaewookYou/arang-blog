@@ -88,7 +88,15 @@ export function SiteHeader() {
                 </div>
 
                 {/* Mobile Menu Button */}
-                <div className="flex md:hidden items-center space-x-2">
+                <div className="flex md:hidden items-center space-x-1">
+                    <Link
+                        href="/search"
+                        className="inline-flex items-center justify-center h-9 w-9 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                    >
+                        <Search className="h-5 w-5" />
+                        <span className="sr-only">{t("search.label", locale)}</span>
+                    </Link>
+                    <LanguageSwitcher />
                     <ThemeToggle />
                     <Button
                         variant="ghost"

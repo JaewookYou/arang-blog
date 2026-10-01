@@ -22,7 +22,8 @@
 
 ### Internationalization (i18n)
 - 🌍 **4개 언어 지원** - 한국어, 영어, 일본어, 중국어
-- 🤖 **AI 자동 번역** - Gemini API 기반 콘텐츠 자동 번역
+- 🤖 **AI 자동 번역** - Gemini API 기반 자동 번역 (서버 시작 시·6시간마다 누락/원문 변경 번역 자동 생성)
+- 🔗 **언어별 주소** - `?lang=en|ja|zh` 링크와 hreflang 메타데이터 (검색엔진·링크 미리보기는 원문 한국어)
 - 🌐 **접속 국가/브라우저 언어 감지** - 자동 언어 설정
 - 📄 **정적 페이지 번역** - Home, About 페이지 다국어 지원
 
@@ -36,7 +37,7 @@
 ### Admin Dashboard
 - 🔐 **GitHub OAuth 인증** - 화이트리스트 기반 관리자 접근
 - ✏️ **글 작성/편집** - 마크다운 에디터 + 이미지 업로드
-- 🌐 **번역 관리** - AI 번역 생성/편집/삭제
+- 🌐 **번역 관리** - 글별·언어별 번역 상태 대시보드, AI 재번역, 마크다운 편집
 - 📊 **댓글 관리** - 댓글 조회 및 삭제
 - 🍯 **허니팟 로그** - 봇 공격 경로 모니터링
 
@@ -133,8 +134,8 @@ arang-blog/
 │   ├── images/            # 이미지 파일
 │   └── uploads/           # 업로드된 파일
 ├── scripts/
-│   ├── deploy.sh          # 배포 스크립트
-│   └── translate-all-posts.js  # 일괄 번역 스크립트
+│   ├── deploy.sh          # (구) PM2 배포 스크립트
+│   └── sync-translations.sh   # 누락/오래된 번역 생성 요청
 ├── src/
 │   ├── app/               # Next.js App Router
 │   │   ├── admin/         # 관리자 페이지
@@ -148,7 +149,9 @@ arang-blog/
 │       ├── db.ts          # SQLite 래퍼
 │       ├── auth.ts        # Auth.js 설정
 │       ├── i18n.ts        # 다국어 유틸리티
-│       └── translations.ts # 정적 페이지 번역
+│       ├── translations.ts # 정적 페이지 번역
+│       ├── gemini.ts      # Gemini 호출 (모델 대체·재시도·JSON 모드)
+│       └── translation/   # 번역 파이프라인·검증·작업 대기열
 ├── velite.config.ts       # Velite 설정
 └── next.config.ts         # Next.js 설정
 ```
@@ -208,6 +211,9 @@ tags: ["xss", "sqli"]
 | `GITHUB_REPO_OWNER` | 저장소 소유자 | ✅ |
 | `GITHUB_REPO_NAME` | 저장소 이름 | ✅ |
 | `GEMINI_API_KEY` | Gemini API 키 (AI 번역용) | ⭕ |
+| `GEMINI_MODEL` | 번역 모델 (쉼표로 여러 개, 순서대로 시도) | ⭕ |
+| `AUTO_TRANSLATE` | `false`면 자동 번역 끔 (기본 켜짐) | ⭕ |
+| `INTERNAL_API_TOKEN` | 내부 API(`/api/internal/*`) Bearer 토큰 | ⭕ |
 | `DB_PATH` | SQLite DB 경로 | ⭕ |
 
 ---
@@ -252,10 +258,21 @@ pm2 restart arang-blog
 `/admin` 경로로 접근 (GitHub OAuth 인증 필요)
 
 - **글 관리**: 작성, 편집, 삭제 (GitHub 커밋)
-- **번역 관리**: AI 번역 생성, 편집, 삭제
+- **번역 관리**: 글별·언어별 상태(최신/원문 변경/문제/없음/실패), 일괄 생성, AI 재번역, 마크다운 편집
 - **댓글 관리**: 댓글 조회 및 삭제
 - **정적 페이지 편집**: Home, About 페이지 편집
 - **허니팟 로그**: 봇 공격 시도 모니터링
+
+---
+
+## 🌐 번역 동작 방식
+
+1. 글을 커밋(또는 관리자 화면에서 저장)하면 원문 해시가 바뀐 언어만 백그라운드로 번역합니다.
+2. 배포로 서버가 재시작되면 공개된 글 중 번역이 없거나, 원문이 바뀌었거나, 검증에 실패한 번역을 자동으로 채웁니다. (이후 6시간마다 반복)
+3. 번역은 코드 블록·이미지를 보호한 채 블록 단위로 나눠 진행하고, 한국어 잔존·누락·플레이스홀더·HTML 태그 구조를 검증합니다. 검증에 실패하면 저장하지 않고 실패 사유를 남깁니다.
+4. Gemini 사용 한도를 넘으면 대기열을 멈추고 관리자 화면에 사유를 표시합니다.
+
+수동으로 생성하려면 `/admin/translations`의 **누락·오래된 번역 모두 생성** 버튼이나 `scripts/sync-translations.sh`를 사용합니다.
 
 ---
 

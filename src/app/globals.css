@@ -116,6 +116,24 @@ pre {
   @apply overflow-x-auto rounded-lg border border-border py-4;
 }
 
+/* 코드 블록: 기본은 줄바꿈, 도구 모음에서 스크롤 모드(.code-scroll)로 전환 */
+.code-block {
+  @apply my-4;
+}
+
+.code-block > pre {
+  @apply my-0;
+}
+
+.prose pre:not(.code-scroll) {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.prose pre.code-scroll {
+  white-space: pre;
+}
+
 pre>code {
   @apply grid;
 }

@@ -5,6 +5,10 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { GoogleAnalytics } from "@/components/google-analytics";
 import { NaverAnalytics } from "@/components/naver-analytics";
+import { LocaleProvider } from "@/components/locale-provider";
+import { getRequestLocale } from "@/lib/locale-server";
+import { HTML_LANG } from "@/lib/i18n";
+import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
 /**
@@ -24,8 +28,10 @@ const fontMono = JetBrains_Mono({
     display: "swap",
 });
 
+const DEFAULT_OG_IMAGE = `/api/og?title=Arang&type=home&description=${encodeURIComponent("Security Research & CTF Writeups")}`;
+
 export const metadata: Metadata = {
-    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://blog.arang.kr"),
+    metadataBase: new URL(SITE_URL),
     title: {
         default: "Arang | Security Research & CTF",
         template: "%s | Arang",
@@ -46,7 +52,7 @@ export const metadata: Metadata = {
         description: "CTF Writeups, Security Research, and Tech Articles",
         images: [
             {
-                url: "/api/og?title=Arang&type=home&description=Security Research & CTF Writeups",
+                url: DEFAULT_OG_IMAGE,
                 width: 1200,
                 height: 630,
                 alt: "Arang - Security Research & CTF",
@@ -58,7 +64,10 @@ export const metadata: Metadata = {
         creator: "@Arang",
         title: "Arang | Security Research & CTF",
         description: "CTF Writeups, Security Research, and Tech Articles",
-        images: ["/api/og?title=Arang&type=home&description=Security Research & CTF Writeups"],
+        images: [DEFAULT_OG_IMAGE],
+    },
+    alternates: {
+        types: { "application/rss+xml": "/rss.xml" },
     },
     // Security-First: 기본 robots 설정
     robots: {
@@ -73,13 +82,15 @@ export const metadata: Metadata = {
     },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;
 }>) {
+    const locale = await getRequestLocale();
+
     return (
-        <html lang="ko" suppressHydrationWarning>
+        <html lang={HTML_LANG[locale]} suppressHydrationWarning>
             <body
                 className={`${fontSans.variable} ${fontMono.variable} font-sans antialiased min-h-screen flex flex-col`}
             >
@@ -91,11 +102,13 @@ export default function RootLayout({
                     enableSystem
                     disableTransitionOnChange
                 >
-                    <SiteHeader />
-                    <main className="container mx-auto px-4 py-8 flex-1 max-w-4xl">
-                        {children}
-                    </main>
-                    <SiteFooter />
+                    <LocaleProvider locale={locale}>
+                        <SiteHeader />
+                        <main className="container mx-auto px-4 py-8 flex-1 max-w-4xl">
+                            {children}
+                        </main>
+                        <SiteFooter />
+                    </LocaleProvider>
                 </ThemeProvider>
             </body>
         </html>

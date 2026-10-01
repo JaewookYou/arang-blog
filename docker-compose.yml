@@ -22,6 +22,10 @@ services:
       - GITHUB_REPO_NAME=${GITHUB_REPO_NAME:-arang-blog}
       - ADMIN_WHITELIST=${ADMIN_WHITELIST:-JaewookYou}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      # 번역 모델 (쉼표로 여러 개 지정 시 순서대로 시도, 비우면 기본 목록 사용)
+      - GEMINI_MODEL=${GEMINI_MODEL:-}
+      # false로 두면 서버 시작 시 자동 번역을 하지 않음
+      - AUTO_TRANSLATE=${AUTO_TRANSLATE:-true}
       - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN}
       - DB_PATH=/app/data/blog.db
     healthcheck:

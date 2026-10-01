@@ -7,7 +7,14 @@ import GitHub from "next-auth/providers/github";
  */
 
 // 허용된 GitHub 사용자 목록
-const ADMIN_WHITELIST = (process.env.ADMIN_WHITELIST || "JaewookYou").split(",");
+export const ADMIN_WHITELIST = (process.env.ADMIN_WHITELIST || "JaewookYou")
+    .split(",")
+    .map((name) => name.trim().toLowerCase())
+    .filter(Boolean);
+
+export function isWhitelisted(login: unknown): boolean {
+    return typeof login === "string" && ADMIN_WHITELIST.includes(login.toLowerCase());
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
     providers: [
@@ -20,7 +27,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         async signIn({ user, profile }) {
             // GitHub 사용자명이 화이트리스트에 있는지 확인
             const githubUsername = (profile as { login?: string })?.login;
-            if (githubUsername && ADMIN_WHITELIST.includes(githubUsername)) {
+            if (isWhitelisted(githubUsername)) {
                 return true;
             }
             // 화이트리스트에 없으면 로그인 거부
@@ -31,6 +38,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             if (token.sub) {
                 session.user.id = token.sub;
             }
+            (session.user as { login?: string }).login = token.githubUsername as string | undefined;
             return session;
         },
         async jwt({ token, profile }) {

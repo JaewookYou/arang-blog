@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAdmin } from "@/lib/admin-auth";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { existsSync } from "fs";
@@ -13,10 +13,8 @@ const UPLOAD_DIR = path.join(process.cwd(), "data", "uploads");
 
 export async function POST(request: NextRequest) {
     // 인증 확인
-    const session = await auth();
-    if (!session) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const denied = await requireAdmin();
+    if (denied) return denied;
 
     try {
         const formData = await request.formData();
@@ -26,9 +24,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "No file provided" }, { status: 400 });
         }
 
-        // 파일 타입 검증
-        const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-        if (!allowedTypes.includes(file.type)) {
+        // 파일 타입 검증 (확장자는 업로드 파일명이 아니라 MIME 타입으로 정한다)
+        const extensionByType: Record<string, string> = {
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/gif": "gif",
+            "image/webp": "webp",
+        };
+        if (!extensionByType[file.type]) {
             return NextResponse.json(
                 { error: "Invalid file type. Allowed: jpg, png, gif, webp" },
                 { status: 400 }
@@ -56,7 +59,7 @@ export async function POST(request: NextRequest) {
         }
 
         // 파일명 생성 (timestamp + random)
-        const ext = file.name.split(".").pop() || "png";
+        const ext = extensionByType[file.type];
         const timestamp = Date.now();
         const random = Math.random().toString(36).substring(2, 8);
         const filename = `${timestamp}-${random}.${ext}`;

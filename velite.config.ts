@@ -2,6 +2,8 @@ import { defineConfig, defineCollection, s } from "velite";
 import rehypePrettyCode from "rehype-pretty-code";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
+import { prettyCodeOptions } from "./src/lib/markdown-options";
+import { rehypeSafeHtml } from "./src/lib/rehype-safe-html";
 
 /**
  * Velite Configuration
@@ -34,6 +36,8 @@ const posts = defineCollection({
         cover: s.image().optional(),
         category: s.string().optional(),
         body: s.markdown(),
+        // 프론트매터를 제외한 마크다운 원문 (번역 원본 및 변경 감지용)
+        raw: s.raw(),
     }),
 });
 
@@ -50,6 +54,8 @@ const writeups = defineCollection({
         points: s.number().optional(),
         solves: s.number().optional(),
         body: s.markdown(),
+        // 프론트매터를 제외한 마크다운 원문 (번역 원본 및 변경 감지용)
+        raw: s.raw(),
     }),
 });
 
@@ -66,15 +72,9 @@ export default defineConfig({
     markdown: {
         remarkPlugins: [remarkGfm],
         rehypePlugins: [
+            rehypeSafeHtml, // 원시 HTML 속 스크립트·이벤트 속성 무력화 (본문이 서버에서 그대로 렌더링됨)
             rehypeSlug, // 헤딩에 자동 id 부여
-            [
-                rehypePrettyCode,
-                {
-                    theme: "tokyo-night",
-                    keepBackground: true,
-                    defaultLang: "plaintext",
-                },
-            ],
+            [rehypePrettyCode, { ...prettyCodeOptions }],
         ],
     },
 });
