@@ -14,7 +14,7 @@ export const metadata = {
 
 const ERROR_MESSAGES: Record<string, string> = {
     AccessDenied: "허가되지 않은 GitHub 계정입니다. 관리자 화이트리스트를 확인하세요.",
-    Configuration: "인증 설정 오류입니다. AUTH_SECRET / GitHub OAuth 설정을 확인하세요.",
+    Configuration: "로그인 처리 중 서버 오류가 발생했습니다. 잠시 후 다시 시도하고, 계속되면 서버 로그의 [auth][error]를 확인하세요.",
     Verification: "로그인 링크가 만료되었습니다. 다시 시도하세요.",
 };
 
